@@ -1,0 +1,87 @@
+`timescale 1ns / 10ps
+
+module data_buffer (
+    input logic clk, n_rst, get_rx_data, store_tx_data, clear, flush, get_tx_packet_data, store_rx_packet_data,
+    input logic [7:0] tx_data, rx_packet_data,
+    output logic [6:0] buffer_occupancy,
+    output logic [7:0] rx_data, tx_packet_data
+);
+    logic [7:0] memarr [0:63];
+    logic [7:0] memarr_next [0:63];
+    logic [5:0] read_ptr, read_ptr_next, write_ptr, write_ptr_next;
+    logic [6:0] occupancy, occpuancy_next;
+    logic [7:0] rx_data_next, tx_packet_data_next;
+
+    always_ff @(posedge clk, negedge n_rst) begin
+        if(!n_rst) begin
+            memarr<='{default:0};
+            read_ptr<=0;
+            write_ptr<=0;
+            occupancy<=0;
+            rx_data<=0;
+            tx_packet_data<=0;
+        end
+        else begin
+            memarr<=memarr_next;
+            read_ptr<=read_ptr_next;
+            write_ptr<=write_ptr_next;
+            occupancy<=occpuancy_next;
+            rx_data<=rx_data_next;
+            tx_packet_data<=tx_packet_data_next;
+        end
+    end
+
+
+    always_comb begin
+        read_ptr_next = read_ptr;
+        write_ptr_next = write_ptr;
+        memarr_next = memarr;
+
+        //occupancy logic
+        if(occupancy<64 && occupancy>0) begin
+            occpuancy_next = occupancy + {6'b0, (store_rx_packet_data || store_tx_data)} - {6'b0, (get_rx_data | get_tx_packet_data)};
+        end
+        else if(occupancy>0) begin
+            occpuancy_next = occupancy - {6'b0, (get_rx_data | get_tx_packet_data)};
+        end
+        else begin
+            occpuancy_next = occupancy + {6'b0, (store_rx_packet_data || store_tx_data)};
+        end
+        buffer_occupancy = occupancy;
+        rx_data_next=0;
+        tx_packet_data_next=0;
+
+        //clear flush logic
+        if(clear || flush) begin
+            read_ptr_next=0;
+            write_ptr_next=0;
+            occpuancy_next=0;
+        end
+
+        //write read logic
+        else begin
+            if(store_rx_packet_data && (occupancy<64)) begin
+                memarr_next[write_ptr] = rx_packet_data;
+                write_ptr_next = write_ptr + 1;
+            end
+            if(store_tx_data && (occupancy<64)) begin
+                memarr_next[write_ptr] = tx_data;
+                write_ptr_next = write_ptr + 1;
+            end
+            if(get_rx_data && (occupancy>0)) begin
+                rx_data_next = memarr[read_ptr];
+                read_ptr_next = read_ptr + 1;
+            end
+            if(get_tx_packet_data && (occupancy>0)) begin
+                tx_packet_data_next = memarr[read_ptr];
+                read_ptr_next = read_ptr + 1;
+            end
+        end
+
+    end
+
+
+
+
+endmodule
+
