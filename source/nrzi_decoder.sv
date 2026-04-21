@@ -20,6 +20,7 @@ module nrzi_decoder (
     logic dp_q, dm_q;
     logic next_dorig;
     logic edge_state, n_edge_state;
+    logic edge2, edge3, hold_edge;
 
     logic eop1, eop2, eop3;
     logic n_eop1, n_eop2, n_eop3;
@@ -47,7 +48,7 @@ module nrzi_decoder (
         next_state = state_t'({dp_q, dm_q});
     end
 
-    assign edge_detected = ((dp != dp_q) || (dm != dm_q));
+    assign edge_detected = (state != next_state);
 
     always_comb begin
         //next_dorig = d_orig; //default
@@ -58,7 +59,7 @@ module nrzi_decoder (
                     next_dorig = '0;
                 else    
                     next_dorig = 1'b1;
-            end else */if (edge_detected || edge_state) begin
+            end else */if (hold_edge || edge_state) begin
                 d_orig = '0;
             end else begin
                 d_orig = 1'b1;
@@ -75,11 +76,36 @@ module nrzi_decoder (
         end
     end
 
+    always_ff @(posedge clk or negedge n_rst) begin 
+        if (!n_rst) begin
+            edge2 <= '0;
+            edge3 <= '0;
+        end else begin
+            edge2 <= edge_detected;
+            edge3 <= edge2;
+        end
+    end
+
+    //hold strobe
+    logic strobe2;
+
+    always_ff @(posedge clk or negedge n_rst) begin 
+        if (!n_rst) begin
+            strobe2 <= '0;
+        end else begin
+            strobe2 <= shift_strobe;
+        end
+    end
+
+    
+
+    assign hold_edge = edge_detected; 
+
     always_comb begin
         n_edge_state = edge_state;
-        if (edge_detected)
+        if (hold_edge)
             n_edge_state = 1;
-        else if (shift_strobe)
+        else if (strobe2)
             n_edge_state = 0;
     end
 
