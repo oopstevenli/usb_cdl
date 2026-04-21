@@ -19,8 +19,9 @@ module usb_rx #(
     logic shift_strobe, eight_bit_done, seven_bit_done, four_bit_done, five_bit_done, three_bit_done;
     logic [7:0] out0, out1, out2, out3; //results from three registers
     logic valid1, valid2;
-    logic enable3, enable4, enable5, enable7; //for bit counters
+    logic enable3, enable4, enable5, enable7, enable8; //for bit counters
     logic data_eop, n_data_eop;
+    logic clear_timer;
     
 
     nrzi_decoder nrzi (
@@ -28,7 +29,7 @@ module usb_rx #(
     );
 
     rx_timer time0 (
-        .clk(clk), .n_rst(n_rst), .enable3(enable3), .enable4(enable4), .enable5(enable5), .enable7(enable7), .count_enable_timer(count_enable_timer), .shift_strobe(shift_strobe), .eight_bit_done(eight_bit_done), .seven_bit_done(seven_bit_done), .four_bit_done(four_bit_done), .five_bit_done(five_bit_done), .three_bit_done(three_bit_done)
+        .clk(clk), .n_rst(n_rst), .clear_timer(clear_timer), .enable3(enable3), .enable8(enable8), .enable4(enable4), .enable5(enable5), .enable7(enable7), .count_enable_timer(count_enable_timer), .shift_strobe(shift_strobe), .eight_bit_done(eight_bit_done), .seven_bit_done(seven_bit_done), .four_bit_done(four_bit_done), .five_bit_done(five_bit_done), .three_bit_done(three_bit_done)
     );
 
     flex_sr #(
@@ -60,7 +61,8 @@ module usb_rx #(
         CRC16 = 4'd8,
         EOP = 4'd9,
         ERR = 4'd10,
-        STOP = 4'd11
+        STOP = 4'd11,
+        DATA_ERR = 4'd12
     } state_t;
 
     state_t state, next_state;
@@ -127,7 +129,7 @@ module usb_rx #(
             end
             SYNC: begin
                 if (eight_bit_done) begin
-                    if (out0 == 8'b0000_0001) begin
+                    if (out0 == 8'b1000_0000) begin
                         next_state = PID;
                     end else begin
                         next_state = ERR;
@@ -137,11 +139,11 @@ module usb_rx #(
             end
             PID: begin
                 if (eight_bit_done) begin
-                    if ((out0 == 8'b1000_0111) || (out0 == 8'b1001_0110)) begin //TOKEN
+                    if ((out0 == 8'b1110_0001) || (out0 == 8'b0110_1001)) begin //TOKEN
                         next_state = TOKEN;
-                    end else if (((out0 == 8'b1100_0011) || (out0 == 8'b1101_0010)))begin //DATA
+                    end else if (((out0 == 8'b1100_0011) || (out0 == 8'b0100_1011)))begin //DATA
                         next_state = LOAD_DATA;
-                    end else if (((out0 == 8'b0100_1011)))begin //ACK
+                    end else if (((out0 == 8'b1101_0010)))begin //ACK
                         next_state = STOP;
                     end else begin
                         next_state = ERR;
@@ -150,7 +152,7 @@ module usb_rx #(
             end
             TOKEN: begin
                 if (seven_bit_done) begin
-                    if (out0[7:1] == 7'b100_0000) //Assume address of endpoint is 000_0001 and multiple subordinates are connected
+                    if (out0[7:1] == 7'b000_0001) //Assume address of endpoint is 000_0001 and multiple subordinates are connected
                         next_state = ENDP;
                     else //wrong address
                         next_state = ERR;
@@ -158,7 +160,7 @@ module usb_rx #(
             end
             ENDP: begin
                 if (four_bit_done) begin
-                    if (out0[7:4] == 4'b1000) //assum endpoint is 0001
+                    if (out0[7:4] == 4'b0001) //assum endpoint is 0001
                         next_state = CRC5;
                     else
                         next_state = ERR;
@@ -166,7 +168,7 @@ module usb_rx #(
             end
             LOAD_DATA: begin
                 if (buffer_occupancy == 7'd64)
-                    next_state = ERR;
+                    next_state = DATA_ERR;
                 else if (eop_detected)
                     next_state = CRC16;
                 else if (eight_bit_done && valid2) begin
@@ -179,21 +181,21 @@ module usb_rx #(
             end
             CRC5: begin
                 if (five_bit_done) begin //01100
-                    if (out0[7:3] == 5'b00110)
+                    if (out0[7:3] == 5'b01100)
                         next_state = EOP;
                     else    
                         next_state = ERR;
                 end
             end
             CRC16: begin
-                if ({out2, out1} == 16'b1011_0000_0000_0001) begin
+                if ({out1, out2} == 16'b1000_0000_0000_1101) begin
                     next_state = STOP;
                 end else begin
                     next_state = ERR;
                 end
             end
             EOP: begin
-                if (three_bit_done) begin
+                if (four_bit_done) begin
                     if (eop_detected)
                         next_state = STOP;
                     else
@@ -201,6 +203,9 @@ module usb_rx #(
                 end 
             end
             ERR: begin
+                next_state = IDLE;
+            end
+            DATA_ERR: begin
                 next_state = IDLE;
             end
             STOP: begin
@@ -212,7 +217,7 @@ module usb_rx #(
     end
 
     always_comb begin
-        count_enable_timer = '0;
+        count_enable_timer = 1;
         rx_data_ready = '0;
         rx_transfer_active = '0;
         rx_error = '0;
@@ -222,11 +227,13 @@ module usb_rx #(
         enable5 = '0;
         enable4 = '0;
         enable7 = '0;
+        enable8 = '0;
+        clear_timer = '0;
         flush = '0;
 
         case(state)
             IDLE: begin
-                count_enable_timer = '0;
+                count_enable_timer = 1;
                 rx_data_ready = '0;
                 rx_transfer_active = '0;
                 rx_error = '0;
@@ -235,6 +242,7 @@ module usb_rx #(
 
             end
             SYNC: begin
+                enable8 = 1;
                 count_enable_timer = 1;
                 rx_transfer_active = 1;
 
@@ -242,6 +250,7 @@ module usb_rx #(
             PID: begin
                 count_enable_timer = 1;
                 rx_transfer_active = 1;
+                enable8 = 1;
             end
             TOKEN: begin
                 count_enable_timer = 1;
@@ -256,6 +265,7 @@ module usb_rx #(
             LOAD_DATA: begin
                 count_enable_timer = 1;
                 rx_transfer_active = 1;
+                enable8 = 1;
         
             end
             CHECK_DATA: begin
@@ -263,6 +273,7 @@ module usb_rx #(
                 store_rx_packet_data = 1;
                 rx_packet_data = out3;
                 rx_transfer_active = 1;
+                enable8 = 0;
             end
             CRC5: begin
                 count_enable_timer = 1;
@@ -273,9 +284,10 @@ module usb_rx #(
             CRC16: begin
                 count_enable_timer = 0;
                 rx_transfer_active = 1;
+                enable8 = 1;
             end
             EOP: begin
-                enable3 = 1;
+                enable4 = 1;
                 count_enable_timer = 1;
                 rx_transfer_active = 1;
             end
@@ -283,13 +295,21 @@ module usb_rx #(
                 count_enable_timer = 0;
                 rx_transfer_active = 0;
                 rx_error = 1'b1;
-                flush = 1;
+                clear_timer = 1;
             end
             STOP: begin
                 count_enable_timer = 0;
                 rx_transfer_active = 0;
                 rx_data_ready = 1;
 
+            end
+
+            DATA_ERR: begin
+                count_enable_timer = 0;
+                rx_transfer_active = 0;
+                rx_error = 1'b1;
+                clear_timer = 1;
+                flush = 1;
             end
             default: begin
                 count_enable_timer = '0;
@@ -301,6 +321,7 @@ module usb_rx #(
                 enable5 = '0;
                 enable4 = '0;
                 enable7 = '0;
+                flush = '0;
             end
         endcase
     end
@@ -308,15 +329,15 @@ module usb_rx #(
     always_comb begin : RX_PACK
         rx_packet = '0;
         if (state == PID && eight_bit_done) begin
-            if (out0 == 8'b1000_0111)
+            if (out0 == 8'b1110_0001)
                 rx_packet = 3'b001;
-            else if (out0 == 8'b1001_0110)
+            else if (out0 == 8'b0110_1001)
                 rx_packet = 3'b010;
             else if (out0 == 8'b1100_0011) //DATA0
                 rx_packet = 3'b011;
-            else if (out0 == 8'b1101_0010) //DATA1
+            else if (out0 == 8'b0100_1011) //DATA1
                 rx_packet = 3'b100;
-            else if (out0 == 8'b0100_1011) //ACK
+            else if (out0 == 8'b1101_0010) //ACK
                 rx_packet = 3'b101;
             else
                 rx_packet = 3'b000;
@@ -329,5 +350,4 @@ module usb_rx #(
 
 
 endmodule
-
 
