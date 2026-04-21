@@ -1,4 +1,4 @@
-module usb_ahb_transceiver (
+module ahb_usb (
     input logic clk,
     input logic n_rst,
     input logic hsel,
@@ -62,29 +62,11 @@ module usb_ahb_transceiver (
     assign rx_data1_received = (rx_packet == RX_DATA1_CODE);
     assign rx_ack_received = (rx_packet == RX_ACK_CODE);
 
-    assign reg_status = {
-        6'b000000, // bits 15:10
-        tx_transfer_active, // bit 9
-        rx_transfer_active, // bit 8
-        2'b00, // bits 7:6
-        rx_data1_received, // bit 5
-        rx_data0_received, // bit 4
-        rx_ack_received, // bit 3
-        rx_out_token, // bit 2
-        rx_in_token, // bit 1
-        rx_new_data // bit 0
-    };
-
-    assign reg_error = {
-        7'b0000000, // bits 15:9
-        tx_error_flag, // bit 8
-        7'b0000000, // bits 7:1
-        rx_error_flag // bit 0
-    };
 
     assign reg_buffer_occ = {1'b0, buffer_occupancy};
 
     usb_ahb_subordinate AHB_SUB (
+        // bus signals
         .HCLK(clk),
         .n_rst(n_rst),
         .HSEL(hsel),
@@ -96,31 +78,41 @@ module usb_ahb_transceiver (
         .HRDATA(hrdata),
         .HREADY(hready),
         .HRESP(hresp),
+        
+        // data buffer
         .buffer_occupancy(buffer_occupancy),
         .rx_data(rx_data),
         .tx_data(tx_data),
         .store_tx_data(store_tx_data),
         .get_rx_data(get_rx_data),
-        .reg_status(reg_status),
-        .reg_error(reg_error),
-        .reg_buffer_occ(reg_buffer_occ),
-        .reg_tx_ctrl(reg_tx_ctrl),
-        .reg_flush_ctrl(reg_flush_ctrl)
+        .clear(clear),
+
+        // rx
+        .rx_packet(rx_packet),
+        .rx_data_ready(rx_data_ready),
+        .rx_transfer_active(rx_transfer_active),
+        .rx_error(rx_error),
+
+        // tx
+        .tx_packet(tx_packet),
+        .tx_transfer_active(tx_transfer_active),
+        .tx_error(tx_error)
     );
 
     data_buffer FIFO (
         .clk(clk),
         .n_rst(n_rst),
-        .ahb_tx_data(tx_data),
-        .ahb_store_tx(store_tx_data),
-        .ahb_get_rx(get_rx_data),
-        .ahb_rx_data(rx_data),
-        .usb_rx_data(rx_packet_data),
-        .usb_store_rx(store_rx_packet_data),
-        .usb_get_tx(get_tx_packet_data),
-        .usb_tx_data(tx_packet_data),
-        .flush(reg_flush_ctrl[0] | rx_flush), // flush from either
-        .occupancy(buffer_occupancy)
+        .tx_data(tx_data),
+        .store_tx(store_tx_data),
+        .get_rx_data(get_rx_data),
+        .rx_data(rx_data),
+        .rx_packet_data(rx_packet_data),
+        .store_rx_packet_data(store_rx_packet_data),
+        .get_tx_packet_data(get_tx_packet_data),
+        .tx_packet_data(tx_packet_data),
+        .flush(rx_flush),
+        .buffer_occupancy(buffer_occupancy),
+        .clear(clear)
     );
 
     usb_rx RX_MODULE (
@@ -141,15 +133,16 @@ module usb_ahb_transceiver (
     usb_tx TX_MODULE (
         .clk(clk),
         .n_rst(n_rst),
-        .dp_out(dp_out),
-        .dm_out(dm_out),
-        .d_mode(d_mode),
-        .tx_packet_ctrl(reg_tx_ctrl),
-        .tx_packet_data(tx_packet_data),
-        .get_tx_packet_data(get_tx_packet_data),
+        .DP_OUT(dp_out),
+        .DM_OUT(dm_out),
         .buffer_occupancy(buffer_occupancy),
-        .tx_active(tx_transfer_active),
-        .tx_error(tx_error_flag)
+        .tx_packet_data(tx_packet_data),
+        .tx_packet(tx_packet),
+        .get_tx_packet_data(get_tx_packet_data),
+        .tx_transfer_active(tx_transfer_active),
+        .tx_error(tx_error)
     );
+
+
 
 endmodule
