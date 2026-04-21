@@ -1,4 +1,4 @@
-module ahb_usb (
+module ahb_usb_transceiver (
     input logic clk,
     input logic n_rst,
     input logic hsel,
@@ -18,14 +18,11 @@ module ahb_usb (
 );
     
     // ahb sub
-    logic [15:0] reg_status;
-    logic [15:0] reg_error;
-    logic [7:0]  reg_buffer_occ;
-    logic [7:0]  reg_tx_ctrl;
-    logic [7:0]  reg_flush_ctrl;
-    logic [7:0]  tx_data;
+    logic [7:0] tx_data;
     logic store_tx_data;
     logic get_rx_data;
+    logic clear;
+    logic [2:0] tx_packet;
 
     // rx
     logic [2:0] rx_packet;
@@ -44,26 +41,7 @@ module ahb_usb (
 
     // data buffer
     logic [6:0] buffer_occupancy;
-    logic [7:0] buffer_rx_data;
-    
-    // packet decoder mapping
-    // make sure these map how you guys did them
-    localparam [2:0] RX_OUT_CODE = 3'd1; 
-    localparam [2:0] RX_IN_CODE = 3'd2; 
-    localparam [2:0] RX_DATA0_CODE = 3'd3;
-    localparam [2:0] RX_DATA1_CODE = 3'd4;
-    localparam [2:0] RX_ACK_CODE = 3'd5;
-
-    logic rx_in_token, rx_out_token, rx_ack_received, rx_data0_received, rx_data1_received;
-
-    assign rx_out_token = (rx_packet == RX_OUT_CODE);
-    assign rx_in_token  = (rx_packet == RX_IN_CODE);
-    assign rx_data0_received = (rx_packet == RX_DATA0_CODE);
-    assign rx_data1_received = (rx_packet == RX_DATA1_CODE);
-    assign rx_ack_received = (rx_packet == RX_ACK_CODE);
-
-
-    assign reg_buffer_occ = {1'b0, buffer_occupancy};
+    logic [7:0] rx_data;
 
     usb_ahb_subordinate AHB_SUB (
         // bus signals
@@ -96,7 +74,9 @@ module ahb_usb (
         // tx
         .tx_packet(tx_packet),
         .tx_transfer_active(tx_transfer_active),
-        .tx_error(tx_error)
+        .tx_error(tx_error),
+
+        .d_mode(d_mode)
     );
 
     data_buffer FIFO (
