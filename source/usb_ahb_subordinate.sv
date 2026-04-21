@@ -30,6 +30,9 @@ module usb_ahb_subordinate (
     output logic [2:0] tx_packet,
     input logic tx_transfer_active,
     input logic tx_error
+
+    output logic d_mode;
+
 );
 
     // READABILITY 
@@ -101,7 +104,7 @@ module usb_ahb_subordinate (
     // output commands
     assign tx_packet = reg_tx_ctrl;
     assign clear = reg_flush_ctrl[0];
-
+    assign d_mode = tx_transfer_active;
     
     //-------------------------------------------------------------------------
     // ORIGINAL LOGIC
