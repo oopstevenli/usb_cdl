@@ -5,9 +5,9 @@ module rx_timer #(
 ) (
     input logic clk, n_rst,
     //input logic clear_cycle,
-    //input logic clear_timer,
+    input logic clear_timer,
     input logic count_enable_timer,
-    input logic enable4, enable5, enable7, enable3,
+    input logic enable4, enable5, enable7, enable3, enable8,
     output logic shift_strobe,
     output logic eight_bit_done,
     output logic seven_bit_done,
@@ -64,7 +64,7 @@ module rx_timer #(
     flex_counter #(.SIZE(4)) timer (
         .clk(clk),
         .n_rst(n_rst),
-        .clear(eight_bit_done | !count_enable_timer ),
+        .clear(clear_timer),
         .count_enable(count_enable_timer),
         .rollover_val(rollover_val_t),
         /* verilator lint_off PINCONNECTEMPTY */
@@ -80,7 +80,7 @@ module rx_timer #(
         .clk(clk),
         .n_rst(n_rst),
         .clear(eight_bit_done | !count_enable_timer),
-        .count_enable(shift_strobe),
+        .count_enable(shift_strobe & enable8),
         .rollover_val(4'd8),
         /* verilator lint_off PINCONNECTEMPTY */
         .count_out(),
