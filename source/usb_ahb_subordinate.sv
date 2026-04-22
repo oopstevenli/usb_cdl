@@ -65,6 +65,7 @@ module usb_ahb_subordinate (
     logic [7:0] reg_buffer_occ;
     logic [7:0] reg_tx_ctrl;
     logic [7:0] reg_flush_ctrl;
+    logic [7:0] next_status;
 
     // rx packet decoding to match stevens <3
     localparam [2:0] RX_OUT_CODE = 3'd1;
@@ -80,8 +81,8 @@ module usb_ahb_subordinate (
     localparam [2:0] TX_NAK_CODE = 3'd4;
     localparam [2:0] TX_STALL_CODE = 3'd5;
 
-    assign tx_data0_send = reg_status[4] && next_status;
-    assign tx_data1_send = reg_status[1] ;    
+    assign tx_data0_send = (HREADY == 1 && HRESP == 0) && ~data_type && next_status[1];
+    assign tx_data1_send = (HREADY == 1 && HRESP == 0) && data_type && next_status[1] ;    
     assign tx_send_ack = (HREADY == 1 && HRESP == 0);
     assign tx_send_nak = (HREADY == 0);
     assign tx_send_stall = (HRESP == 1);
@@ -93,6 +94,9 @@ module usb_ahb_subordinate (
     assign rx_data0_received = (rx_packet == RX_DATA0_CODE);
     assign rx_data1_received = (rx_packet == RX_DATA1_CODE);
     assign rx_ack_received = (rx_packet == RX_ACK_CODE);
+
+    logic data_type = 1'b0;
+    logic next_data_type = 1'b0;
 
     // signal definitions moved from top level to here
     assign next_status = {
@@ -144,7 +148,7 @@ module usb_ahb_subordinate (
     logic hready_out_int;
     logic [7:0] next_tx_ctrl;
     logic [7:0] next_flush_ctrl;
-    logic [7:0] next_status;
+    
 
 
     //-------------------------------------------------------------------------
@@ -166,6 +170,7 @@ module usb_ahb_subordinate (
             reg_tx_ctrl <= 8'h00;
             reg_flush_ctrl <= 8'h00;
             reg_status <= 8'h00;
+            data_type <= 1'b0;
         end else begin
             if (HREADY) begin
                 reg_haddr <= HADDR;
@@ -180,6 +185,7 @@ module usb_ahb_subordinate (
             write_state <= next_write_state;
             byte_cnt <= next_byte_cnt;
             HRDATA <= next_hrdata;
+            data_type <= next_data_type;
 
             reg_flush_ctrl <= next_flush_ctrl;
             reg_tx_ctrl <= next_tx_ctrl;
@@ -238,7 +244,7 @@ module usb_ahb_subordinate (
     always_comb begin
         next_err_state = err_state;
         case (err_state)
-            IDLE_E: if (addr_phase_err) next_err_state = ERR1;
+            IDLE_E: if (addr_phase_err || rx_error) next_err_state = ERR1;
             ERR1: next_err_state = ERR2;
             ERR2: next_err_state = IDLE_E;
             default: next_err_state = IDLE_E;
@@ -381,6 +387,15 @@ module usb_ahb_subordinate (
                 // read from data buffer
                 get_rx_data = 1'b1; // pop from FIFO
             end
+        end
+    end
+
+    always_comb begin
+        next_data_type = data_type;
+        if(reg_status[5] == 1) begin
+            next_data_type = 1;
+        end else if (reg_status[4] == 1) begin
+            next_data_type = 0;
         end
     end
 
