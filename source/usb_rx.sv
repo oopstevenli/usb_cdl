@@ -260,6 +260,7 @@ module usb_rx #(
         enable8 = '0;
         clear_timer = '0;
         flush = '0;
+        
 
         case(state)
             IDLE: begin
@@ -268,6 +269,7 @@ module usb_rx #(
                 rx_transfer_active = '0;
                 rx_error = '0;
                 store_rx_packet_data = '0;
+                
 
 
             end
@@ -357,7 +359,7 @@ module usb_rx #(
     end
 
     always_comb begin : RX_PACK
-        rx_packet = '0;
+        rx_packet = rx_packet;
         if (state == PID && eight_bit_done) begin
             if (out0 == 8'b1110_0001) //OUT
                 rx_packet = 3'b001;
@@ -371,6 +373,8 @@ module usb_rx #(
                 rx_packet = 3'b101;
             else
                 rx_packet = 3'b000;
+        end else if (state == IDLE) begin
+            rx_packet = '0;
         end
     end
 
