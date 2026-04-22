@@ -29,9 +29,9 @@ module usb_ahb_subordinate (
     // tx
     output logic [2:0] tx_packet,
     input logic tx_transfer_active,
-    input logic tx_error
+    input logic tx_error,
 
-    output logic d_mode;
+    output logic d_mode
 
 );
 
@@ -73,6 +73,20 @@ module usb_ahb_subordinate (
     localparam [2:0] RX_DATA1_CODE = 3'd4;
     localparam [2:0] RX_ACK_CODE = 3'd5;
 
+    // tx packet decoding to match amys <3
+    localparam [2:0] TX_DATA0_CODE = 3'd1;
+    localparam [2:0] TX_DATA1_CODE = 3'd2;
+    localparam [2:0] TX_ACK_CODE = 3'd3;
+    localparam [2:0] TX_NAK_CODE = 3'd4;
+    localparam [2:0] TX_STALL_CODE = 3'd5;
+
+    assign tx_data0_send = reg_status[4];
+    assign tx_data1_send = reg_status[5];    
+    assign tx_send_ack = (HREADY == 1 && HRESP == 0);
+    assign tx_send_nak = (HREADY == 0);
+    assign tx_send_stall = (HRESP == 1);
+
+
     // logic signals for packet type (more readable)
     assign rx_out_token = (rx_packet == RX_OUT_CODE);
     assign rx_in_token = (rx_packet == RX_IN_CODE);
@@ -102,7 +116,7 @@ module usb_ahb_subordinate (
     };
 
     // output commands
-    assign tx_packet = reg_tx_ctrl;
+    assign tx_packet = reg_tx_ctrl[2:0];
     assign clear = reg_flush_ctrl[0];
     assign d_mode = tx_transfer_active;
     
@@ -193,8 +207,17 @@ module usb_ahb_subordinate (
         next_flush_ctrl = reg_flush_ctrl;
         if(reg_wen && (reg_haddr[3:2] == REG_CONTROL)) begin
             
+            // assign tx_data0_send = reg_status[4];
+            // assign tx_data1_send = reg_status[5];    
+            // assign tx_send_ack = (HREADY == 1 && HRESP == 0);
+            // assign tx_send_nak = (HREADY == 0);
+            // assign tx_send_stall = (HRESP == 1);
             if(reg_haddr[1:0] == OFF_TX_PKT) begin
-                next_tx_ctrl = HWDATA[7:0]; // write to 0xC
+                if(tx_data0_send) next_tx_ctrl = {4'b0, TX_DATA0_CODE}; // write to 0xC
+                if(tx_data1_send) next_tx_ctrl = {4'b0, TX_DATA1_CODE};
+                if(tx_send_ack) next_tx_ctrl = {4'b0, TX_ACK_CODE};
+                if(tx_send_nak) next_tx_ctrl = {4'b0, TX_NAK_CODE};
+                if(tx_send_stall) next_tx_ctrl = {4'b0, TX_STALL_CODE};
             end
             
             if(reg_haddr[1:0] == OFF_FLUSH) begin
