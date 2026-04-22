@@ -80,8 +80,8 @@ module usb_ahb_subordinate (
     localparam [2:0] TX_NAK_CODE = 3'd4;
     localparam [2:0] TX_STALL_CODE = 3'd5;
 
-    assign tx_data0_send = reg_status[4];
-    assign tx_data1_send = reg_status[5];    
+    assign tx_data0_send = reg_status[4] && next_status;
+    assign tx_data1_send = reg_status[1] ;    
     assign tx_send_ack = (HREADY == 1 && HRESP == 0);
     assign tx_send_nak = (HREADY == 0);
     assign tx_send_stall = (HRESP == 1);
@@ -95,7 +95,7 @@ module usb_ahb_subordinate (
     assign rx_ack_received = (rx_packet == RX_ACK_CODE);
 
     // signal definitions moved from top level to here
-    assign reg_status = {
+    assign next_status = {
         6'b000000, // bits 15:10
         tx_transfer_active, // bit 9
         rx_transfer_active, // bit 8
@@ -144,6 +144,8 @@ module usb_ahb_subordinate (
     logic hready_out_int;
     logic [7:0] next_tx_ctrl;
     logic [7:0] next_flush_ctrl;
+    logic [7:0] next_status;
+
 
     //-------------------------------------------------------------------------
     // REGISTERED SIGNALS
@@ -163,6 +165,7 @@ module usb_ahb_subordinate (
             HRDATA <= 32'h0;
             reg_tx_ctrl <= 8'h00;
             reg_flush_ctrl <= 8'h00;
+            reg_status <= 8'h00;
         end else begin
             if (HREADY) begin
                 reg_haddr <= HADDR;
@@ -180,6 +183,7 @@ module usb_ahb_subordinate (
 
             reg_flush_ctrl <= next_flush_ctrl;
             reg_tx_ctrl <= next_tx_ctrl;
+            reg_status <= next_status;
         end
     end
 
@@ -222,6 +226,8 @@ module usb_ahb_subordinate (
             
             if(reg_haddr[1:0] == OFF_FLUSH) begin
                 next_flush_ctrl = HWDATA[15:8]; // write to 0xD
+            end else begin
+                next_flush_ctrl = 8'b0;
             end
 
         end
