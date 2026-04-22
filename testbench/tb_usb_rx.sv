@@ -171,6 +171,101 @@ module tb_usb_rx ();
         @(negedge clk);
         @(negedge clk);
         #CLK_PERIOD;
+
+        @(negedge clk);
+        buffer_occupancy = 7'd64;
+        @(negedge clk);
+        test_name = "FILLED BUFFER";
+        //test_name = "SYNC BYTE";
+        send_byte(8'b0010_1010, 4'd8);
+        @(negedge clk);
+        //test_name = "PID BYTE";
+        
+        send_byte(8'b0001_0100, 4'd8);
+        #CLK_PERIOD;
+        @(negedge clk);
+        dp_in = 1;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+
+        test_name = "0 byte DATA0";
+        buffer_occupancy = '0;
+        @(negedge clk);
+        //test_name = "SYNC BYTE";
+        send_byte(8'b0010_1010, 4'd8);
+        @(negedge clk);
+        //test_name = "PID BYTE";
+        
+        send_byte(8'b0001_0100, 4'd8);
+        #CLK_PERIOD;
+        @(negedge clk);
+        //4 byte data---------------------------------
+        //CRC16 bits---------------------------------
+        test_name = "CRC16";
+        send_byte(8'b1010_1110, 4'd8);
+        @(negedge clk);
+        test_name = "CRC16-2";
+        send_byte(8'b0010_1010, 4'd8);
+        @(negedge clk);
+        //test_name = "EOP";
+        dp_in = 0;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        #(DATA_PERIOD);
+        @(negedge clk);
+        dp_in = 1;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        #CLK_PERIOD;
+        @(negedge clk);
+        test_name = "BIT UNSTUFF";
+        //test_name = "SYNC BYTE";
+        send_byte(8'b0010_1010, 4'd8);
+        @(negedge clk);
+        //test_name = "PID BYTE";
+        
+        send_byte(8'b0001_0100, 4'd8);
+        #CLK_PERIOD;
+        @(negedge clk);
+        test_name = "BIT STUFFED";
+        //byte data---------------------------------
+        send_byte(8'b1100_0000, 4'd8);
+        @(negedge clk);
+        send_byte(81'b1, 4'd1);
+        @(negedge clk);
+        //CRC16 bits---------------------------------
+        test_name = "CRC16";
+        send_byte(8'b1010_1110, 4'd8);
+        @(negedge clk);
+        test_name = "CRC16-2";
+        send_byte(8'b0010_1010, 4'd8);
+        @(negedge clk);
+        //test_name = "EOP";
+        dp_in = 0;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        #(DATA_PERIOD);
+        @(negedge clk);
+        dp_in = 1;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        #CLK_PERIOD;
+
+
         $finish;
         
         
