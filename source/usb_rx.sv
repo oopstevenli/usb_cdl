@@ -22,23 +22,23 @@ module usb_rx #(
     logic enable3, enable4, enable5, enable7, enable8; //for bit counters
     logic data_eop, n_data_eop;
     logic clear_timer;
+    logic [3:0] count6, n_count6;
+    logic d_out, valid_bit;
     
 
     nrzi_decoder nrzi (
         .clk(clk), .n_rst(n_rst),  .dp(dp_in), .dm(dm_in), .d_orig(d_orig), .shift_strobe(shift_strobe), .edge_detected(edge_detected), .eop_detected(eop_detected)
     );
-
     rx_timer time0 (
         .clk(clk), .n_rst(n_rst), .clear_timer(clear_timer), .enable3(enable3), .enable8(enable8), .enable4(enable4), .enable5(enable5), .enable7(enable7), .count_enable_timer(count_enable_timer), .shift_strobe(shift_strobe), .eight_bit_done(eight_bit_done), .seven_bit_done(seven_bit_done), .four_bit_done(four_bit_done), .five_bit_done(five_bit_done), .three_bit_done(three_bit_done)
     );
-
     flex_sr #(
         .SIZE(8),
         .MSB_FIRST(0)
     ) sr8bit (
         .clk(clk),
         .n_rst(n_rst),
-        .shift_enable(shift_strobe),
+        .shift_enable(shift_strobe & valid_bit),
         .load_enable(1'b0),
         .serial_in(d_orig),
         .parallel_in('0),
@@ -104,6 +104,36 @@ module usb_rx #(
             data_eop <= n_data_eop;
         end
     end
+    //=======================================================================
+    always_ff @(posedge clk or negedge n_rst) begin : BIT_UNSTUFF 
+        if (!n_rst) begin
+            count6 <= '0; 
+        end else begin
+            count6 <= n_count6;
+        end
+    end  
+
+    always_comb begin
+        n_count6 = count6;
+
+        if (shift_strobe) begin
+            if (d_orig == 1'b1) begin
+                n_count6 = count6 + 1;
+            end else begin
+                n_count6 = '0;
+            end
+        end
+    end
+
+    always_comb begin
+        valid_bit = 1;
+        d_out = d_orig;
+
+        if (count6 >= 4'd6 && d_orig == 1'b0) begin
+            valid_bit = '0;
+        end
+    end
+    //==========================================================
 
     always_comb begin
         
@@ -329,9 +359,9 @@ module usb_rx #(
     always_comb begin : RX_PACK
         rx_packet = '0;
         if (state == PID && eight_bit_done) begin
-            if (out0 == 8'b1110_0001)
+            if (out0 == 8'b1110_0001) //OUT
                 rx_packet = 3'b001;
-            else if (out0 == 8'b0110_1001)
+            else if (out0 == 8'b0110_1001) //IN
                 rx_packet = 3'b010;
             else if (out0 == 8'b1100_0011) //DATA0
                 rx_packet = 3'b011;
