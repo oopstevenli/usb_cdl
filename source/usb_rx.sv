@@ -30,7 +30,7 @@ module usb_rx #(
         .clk(clk), .n_rst(n_rst),  .dp(dp_in), .dm(dm_in), .d_orig(d_orig), .shift_strobe(shift_strobe), .edge_detected(edge_detected), .eop_detected(eop_detected)
     );
     rx_timer time0 (
-        .clk(clk), .n_rst(n_rst), .clear_timer(clear_timer), .enable3(enable3), .enable8(enable8), .enable4(enable4), .enable5(enable5), .enable7(enable7), .count_enable_timer(count_enable_timer), .shift_strobe(shift_strobe), .eight_bit_done(eight_bit_done), .seven_bit_done(seven_bit_done), .four_bit_done(four_bit_done), .five_bit_done(five_bit_done), .three_bit_done(three_bit_done)
+        .clk(clk), .n_rst(n_rst), .clear_timer(clear_timer), .enable3(enable3), .enable8(valid_bit & enable8), .enable4(enable4), .enable5(enable5), .enable7(enable7), .count_enable_timer(count_enable_timer), .shift_strobe(shift_strobe), .eight_bit_done(eight_bit_done), .seven_bit_done(seven_bit_done), .four_bit_done(four_bit_done), .five_bit_done(five_bit_done), .three_bit_done(three_bit_done)
     );
     flex_sr #(
         .SIZE(8),
@@ -230,7 +230,9 @@ module usb_rx #(
                         next_state = STOP;
                     else
                         next_state = ERR;
-                end 
+                end else if (eop_detected) begin
+                    next_state = STOP;
+                end
             end
             ERR: begin
                 next_state = IDLE;
