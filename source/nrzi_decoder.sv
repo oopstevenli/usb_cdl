@@ -46,9 +46,9 @@ module nrzi_decoder (
 
     always_comb begin
         next_state = state_t'({dp_q, dm_q});
+        edge_detected = (state != next_state);
     end
 
-    assign edge_detected = (state != next_state);
 
     always_comb begin
         //next_dorig = d_orig; //default
@@ -99,7 +99,7 @@ module nrzi_decoder (
 
     
 
-    assign hold_edge = edge_detected; 
+    assign hold_edge = edge_detected ; 
 
     always_comb begin
         n_edge_state = edge_state;
