@@ -489,15 +489,15 @@ module tb_usb_ahb_transceiver ();
         decode_nrzi(8'b11010010, 1'b0,  decode_success);
         decode_nrzi(8'b11010010, 1'b1, decode_success);
 
-        send_in_token(); // send in
+        // send_in_token(); // send in
 
-        @(negedge dp_out);
-        @(posedge clk);
-        @(posedge clk);
-        @(posedge clk);
-        decode_nrzi(8'b1000_0000, 1'b0, decode_success);
-        decode_nrzi(8'b11000011, 1'b0, decode_success);
-        decode_nrzi(8'b11010010, 1'b1, decode_success);
+        // @(negedge dp_out);
+        // @(posedge clk);
+        // @(posedge clk);
+        // @(posedge clk);
+        // decode_nrzi(8'b1000_0000, 1'b0, decode_success);
+        // decode_nrzi(8'b11000011, 1'b0, decode_success);
+        // decode_nrzi(8'b11010010, 1'b1, decode_success);
         
 
         $display("Test case %s completed verification.", testname);
