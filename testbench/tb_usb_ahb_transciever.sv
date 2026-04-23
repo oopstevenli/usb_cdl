@@ -34,7 +34,6 @@ module tb_usb_ahb_transceiver ();
 
 
     // AHB bus signals
-    logic clk, n_rst;
     logic hsel, hwrite, hready, hresp;
     logic [3:0] haddr;
     logic [1:0] htrans;
@@ -55,7 +54,6 @@ module tb_usb_ahb_transceiver ();
     integer i;
 
     // clock generation
-    localparam CLK_PERIOD = 10ns; // 100MHz
     localparam USB_BIT_PERIOD = 83.3ns; // 12MHz (approx 8 clock cycles)
 
     always begin
@@ -90,21 +88,90 @@ module tb_usb_ahb_transceiver ();
         end
     endtask
 
+    // task send_usb_packet(input logic [7:0] data_bytes []);
+    //     begin
+    //         // im just sending in data here idk if thats how its supposed to go
+    //         foreach (data_bytes[i]) begin
+    //             for (int bit_idx = 0; bit_idx < 8; bit_idx++) begin
+    //                 dp_in = data_bytes[i][bit_idx];
+    //                 dm_in = ~data_bytes[i][bit_idx];
+    //                 #(USB_BIT_PERIOD);
+    //             end
+    //         end
+    //         // end of packet
+    //         dp_in = 0; dm_in = 0; #(USB_BIT_PERIOD * 2);
+    //         dp_in = 1; dm_in = 1;
+    //     end
+    // endtask
+
     task send_usb_packet(input logic [7:0] data_bytes []);
-        begin
-            // im just sending in data here idk if thats how its supposed to go
-            foreach (data_bytes[i]) begin
-                for (int bit_idx = 0; bit_idx < 8; bit_idx++) begin
-                    dp_in = data_bytes[i][bit_idx];
-                    dm_in = ~data_bytes[i][bit_idx];
+    begin
+        logic prev_dp_in, prev_dm_in;
+        // dp_in=1;
+        // dm_in=0;
+        prev_dp_in=1;
+        prev_dm_in=0;
+
+        foreach (data_bytes[i]) begin
+            for(int bit_idx=0; bit_idx<8; bit_idx++) begin
+                if(data_bytes[i][bit_idx]==0) begin
+                    prev_dp_in = dp_in;
+                    prev_dm_in = dm_in;
+                    // @(posedge clk);
+                    dp_in = ~dp_in;
+                    dm_in = ~dm_in;
+                    #(USB_BIT_PERIOD);
+                end
+                else begin
+                    prev_dp_in = dp_in;
+                    prev_dm_in = dm_in;
+                    dp_in = prev_dp_in;
+                    dm_in = prev_dm_in;
+                    // @(posedge clk);
                     #(USB_BIT_PERIOD);
                 end
             end
-            // end of packet
-            dp_in = 0; dm_in = 0; #(USB_BIT_PERIOD * 2);
-            dp_in = 1; dm_in = 1;
         end
+    end
     endtask
+    
+task simplify_bit;
+    input bit_val;
+    begin
+        if (bit_val) begin
+            dp_in = 1;
+            dm_in = 0;
+
+        end else begin
+            dp_in = 0;
+            dm_in = 1;
+        end
+    end
+    endtask
+
+    task send_bit;
+    input bit_val;
+    begin
+        simplify_bit(bit_val);
+        //@(negedge DUT.shift_strobe);
+        #USB_BIT_PERIOD;
+
+    end
+    endtask;
+
+    task send_byte;
+    input [7:0] data;
+    input [4:0] n;
+
+    integer i;
+    begin
+        for (i = 0; i < n; i++) begin
+            send_bit(data[i]);
+            //#(USB_BIT_PERIOD);
+        end
+    end
+    endtask
+
 
     task check_multi_byte_usb(input logic [7:0] expected_payload []);
         logic [7:0] captured_byte;
@@ -139,25 +206,76 @@ module tb_usb_ahb_transceiver ();
         n_rst = 1;
 
         reset_dut;
+        dp_in=1;
+        dm_in=0;
 
 
         // TEST 1 - write a byte and watch it come out
         testname = "end_to_host_verified";
 
         // clear buffer and write test data ('S' for Squish)
-        ahb_write(4'hD, 32'h1); 
+        ahb_write(4'hD, 32'h1);
+        testname= "wowie zowie " ;
         ahb_write(4'h0, 32'h53); 
 
         fork
             // waits for bus to move
-            begin
-                check_usb_data(8'h53); 
-            end
+           
 
             // host asks for data
             begin
-                #(USB_BIT_PERIOD * 10); // Small delay to let the monitor settle
-                send_usb_packet('{8'h80, 8'h69, 8'h00, 8'h00}); // Host sends IN token
+        testname = "0 byte DATA0";
+        @(negedge clk);
+        //test_name = "SYNC BYTE";
+        send_byte(8'b0010_1010, 4'd8);
+        @(negedge clk);
+        //test_name = "PID BYTE";
+        
+        send_byte(8'b0001_0100, 4'd8);
+        #CLK_PERIOD;
+        @(negedge clk);
+        //4 byte data---------------------------------
+        //CRC16 bits---------------------------------
+        //test_name = "CRC16";
+        send_byte(8'b1010_1110, 4'd8);
+        @(negedge clk);
+        //test_name = "CRC16-2";
+        send_byte(8'b0010_1010, 4'd8);
+        @(negedge clk);
+        //test_name = "EOP";
+        dp_in = 0;
+        dm_in = 0;
+        #(USB_BIT_PERIOD);
+        @(negedge clk);
+        #(USB_BIT_PERIOD);
+        @(negedge clk);
+        dp_in = 1;
+        dm_in = 0;
+        #(USB_BIT_PERIOD);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        #CLK_PERIOD;
+        @(negedge clk);
+                // #(USB_BIT_PERIOD * 5); // Small delay to let the monitor settle
+                // send_usb_packet('{1'01, 8'h96, 8'h02, 8'h2c}); // Host sends IN token
+                testname = "sending uh in";
+                @(negedge clk);
+                send_byte(8'b00101010, 4'd8);
+                @(negedge clk);
+                send_byte(8'b0111_0010, 4'd8);
+                @(negedge clk);
+                send_byte(7'b010_1010, 4'd7);
+                @(negedge clk);
+                send_byte(4'b1010, 4'd4);
+                @(negedge clk);
+                send_byte(5'b01110, 4'd5);
+                @(negedge clk);
+
+            end
+
+            begin
+                check_multi_byte_usb({8'h53}); 
             end
         join
 
@@ -172,14 +290,15 @@ module tb_usb_ahb_transceiver ();
         ahb_write(4'h0, 8'h43); // 'C'
 
         fork
-            // check all bytes
-            check_multi_byte_usb('{8'h41, 8'h42, 8'h43});
-
+        
             // host triggers the "dump" with an IN token
             begin
                 #(USB_BIT_PERIOD * 5);
                 send_usb_packet('{8'h80, 8'h69, 8'h00, 8'h00}); 
             end
+
+            // check all bytes
+            check_multi_byte_usb('{8'h41, 8'h42, 8'h43});
         join
 
         $display("Test case %s completed verification.", testname);
@@ -189,4 +308,3 @@ module tb_usb_ahb_transceiver ();
 endmodule
 
 /* verilator coverage_on */
-
