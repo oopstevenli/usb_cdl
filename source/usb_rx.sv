@@ -24,6 +24,7 @@ module usb_rx #(
     logic clear_timer;
     logic [3:0] count6, n_count6;
     logic d_out, valid_bit;
+    logic shift_enable;
     
 
     nrzi_decoder nrzi (
@@ -38,7 +39,7 @@ module usb_rx #(
     ) sr8bit (
         .clk(clk),
         .n_rst(n_rst),
-        .shift_enable(shift_strobe & valid_bit),
+        .shift_enable(shift_enable),
         .load_enable(1'b0),
         .serial_in(d_orig),
         .parallel_in('0),
@@ -48,6 +49,8 @@ module usb_rx #(
         .parallel_out(out0)
 
     );
+
+    assign shift_enable = shift_strobe & valid_bit;
 
     typedef enum logic [3:0] {
         IDLE = 4'd0,
@@ -108,6 +111,7 @@ module usb_rx #(
     always_ff @(posedge clk or negedge n_rst) begin : BIT_UNSTUFF 
         if (!n_rst) begin
             count6 <= '0; 
+            
         end else begin
             count6 <= n_count6;
         end
@@ -124,6 +128,8 @@ module usb_rx #(
             end
         end
     end
+
+    
 
     always_comb begin
         valid_bit = 1;
@@ -238,7 +244,7 @@ module usb_rx #(
                 next_state = IDLE;
             end
             DATA_ERR: begin
-                next_state = IDLE;
+                next_state = EOP;
             end
             STOP: begin
                 next_state = IDLE;
@@ -271,6 +277,8 @@ module usb_rx #(
                 rx_transfer_active = '0;
                 rx_error = '0;
                 store_rx_packet_data = '0;
+                clear_timer = 0;
+                
                 
 
 
@@ -326,23 +334,23 @@ module usb_rx #(
                 rx_transfer_active = 1;
             end
             ERR: begin
-                count_enable_timer = 0;
+                count_enable_timer = 1;
                 rx_transfer_active = 0;
                 rx_error = 1'b1;
                 clear_timer = 1;
             end
             STOP: begin
-                count_enable_timer = 0;
+                count_enable_timer = 1;
                 rx_transfer_active = 0;
                 rx_data_ready = 1;
+                //clear_timer = 1;
 
             end
 
             DATA_ERR: begin
-                count_enable_timer = 0;
+                count_enable_timer = 1;
                 rx_transfer_active = 0;
                 rx_error = 1'b1;
-                clear_timer = 1;
                 flush = 1;
             end
             default: begin
