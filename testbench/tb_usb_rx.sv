@@ -84,6 +84,32 @@ module tb_usb_rx ();
     end
     endtask
 
+    task decode_nrzi; //FOR JOEEEEEEEEE!!!!!
+    input [7:0] encoded_dp_output;
+    input [7:0] expected_decoded;
+
+    integer i;
+    integer prev_dp = 1;
+    logic [7:0] decoded;
+    begin
+        for (i = 0; i < 8; i++) begin
+            if (encoded_dp_output[i] != prev_dp) begin
+                prev_dp = encoded_dp_output[i];
+                decoded[i] = 0;
+            end else begin
+                prev_dp = encoded_dp_output[i];
+                decoded[i] = 1;
+            end
+        end
+
+        if (expected_decoded == decoded) begin
+            $display("Decoded matches!");
+        end else begin
+            $display("Decoded doesn't match!");
+        end
+    end
+    endtask
+
     usb_rx #() DUT (.*);
 
     initial begin
