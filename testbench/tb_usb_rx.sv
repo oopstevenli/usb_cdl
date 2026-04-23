@@ -84,32 +84,6 @@ module tb_usb_rx ();
     end
     endtask
 
-    task decode_nrzi; //FOR JOEEEEEEEEE!!!!!
-    input [7:0] encoded_dp_output;
-    input [7:0] expected_decoded;
-
-    integer i;
-    static integer prev_dp = 1;
-    logic [7:0] decoded;
-    begin
-        for (i = 0; i < 8; i++) begin
-            if (encoded_dp_output[i] != prev_dp) begin
-                prev_dp = encoded_dp_output[i];
-                decoded[i] = 0;
-            end else begin
-                prev_dp = encoded_dp_output[i];
-                decoded[i] = 1;
-            end
-        end
-
-        if (expected_decoded == decoded) begin
-            $display("Decoded matches!");
-        end else begin
-            $display("Decoded doesn't match!");
-        end
-    end
-    endtask
-
     usb_rx #() DUT (.*);
 
     initial begin
@@ -120,6 +94,7 @@ module tb_usb_rx ();
         test_name = "RESET";
 
         reset_dut;
+        //#(DATA_PERIOD * 9);
         @(negedge clk);
         @(negedge clk);
         test_name = "TOKEN OUT";
@@ -129,7 +104,6 @@ module tb_usb_rx ();
         @(negedge clk);
         //test_name = "PID BYTE";
         send_byte(8'b0000_1010, 4'd8);
-        #CLK_PERIOD;
         @(negedge clk);
         //test_name = "ADDR BYTE";
         send_byte(7'b010_1010, 4'd7);
@@ -196,7 +170,8 @@ module tb_usb_rx ();
         @(negedge clk);
         @(negedge clk);
         @(negedge clk);
-        #CLK_PERIOD;
+        @(negedge clk);
+        @(negedge clk);
 
         @(negedge clk);
         buffer_occupancy = 7'd64;
@@ -208,7 +183,13 @@ module tb_usb_rx ();
         //test_name = "PID BYTE";
         
         send_byte(8'b0001_0100, 4'd8);
-        #CLK_PERIOD;
+        @(negedge clk);
+        //test_name = "EOP";
+        dp_in = 0;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        #(DATA_PERIOD);
         @(negedge clk);
         dp_in = 1;
         dm_in = 0;
@@ -229,7 +210,6 @@ module tb_usb_rx ();
         //test_name = "PID BYTE";
         
         send_byte(8'b0001_0100, 4'd8);
-        #CLK_PERIOD;
         @(negedge clk);
         //4 byte data---------------------------------
         //CRC16 bits---------------------------------
@@ -252,7 +232,6 @@ module tb_usb_rx ();
         @(negedge clk);
         @(negedge clk);
         @(negedge clk);
-        #CLK_PERIOD;
         @(negedge clk);
         test_name = "BIT UNSTUFF";
         //test_name = "SYNC BYTE";
@@ -261,7 +240,6 @@ module tb_usb_rx ();
         //test_name = "PID BYTE";
         
         send_byte(8'b0001_0100, 4'd8);
-        #CLK_PERIOD;
         @(negedge clk);
         //test_name = "BIT STUFFED";
         //byte data---------------------------------
@@ -286,12 +264,9 @@ module tb_usb_rx ();
         dp_in = 1;
         dm_in = 0;
         #(DATA_PERIOD);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        #CLK_PERIOD;
+        
         //=============================================
-        @(negedge clk);
+        
         @(negedge clk);
         test_name = "IN TOKEN";
         //test_name = "SYNC BYTE";
@@ -300,7 +275,6 @@ module tb_usb_rx ();
         @(negedge clk);
         //test_name = "PID BYTE";
         send_byte(8'b0111_0010, 4'd8);
-        #CLK_PERIOD;
         @(negedge clk);
         test_name = "ADDR BYTE";
         send_byte(7'b010_1010, 4'd7);
@@ -324,6 +298,21 @@ module tb_usb_rx ();
         @(negedge clk);
         @(negedge clk);
         @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        //=============================================
+        @(negedge clk);
+        @(negedge clk);
+        test_name = "ACK";
+        //test_name = "SYNC BYTE";
+        send_byte(8'b0010_1010, 4'd8);
+        //#CLK_PERIOD;
+        @(negedge clk);
+        //test_name = "PID BYTE";
+        send_byte(8'b0001_1011, 4'd8);
+    
         @(negedge clk);
         @(negedge clk);
         @(negedge clk);
