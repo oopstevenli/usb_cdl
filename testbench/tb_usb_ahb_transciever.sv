@@ -40,9 +40,9 @@ module tb_usb_ahb_transceiver ();
     logic [2:0] hsize;
     logic [31:0] hwdata, hrdata;
 
-    localparam BYTE_SIZE = 3'b0;
-    localparam HALFWORD_SIZE = 3'b1;
-    localparam FULLWORD_SIZE = 3'b2;
+    localparam BYTE_SIZE = 3'b000;
+    localparam HALFWORD_SIZE = 3'b001;
+    localparam FULLWORD_SIZE = 3'b010;
 
 
     ahb_model_updated #( .ADDR_WIDTH(4), .DATA_WIDTH(4) ) BFM (
@@ -113,30 +113,32 @@ module tb_usb_ahb_transceiver ();
     // endtask
 
     task send_usb_packet(input logic [7:0] data_bytes [])
-        logic prev_dp_in, prev_dm_in;
-        // dp_in=1;
-        // dm_in=0;
-        prev_dp_in=1;
-        prev_dm_in=0;
-
-        // encoder
-        foreach (data_bytes[i]) begin
-            for(int bit_idx=0; bit_idx<8; bit_idx++) begin
-                if(data_bytes[i][bit_idx]==0) begin
-                    prev_dp_in = dp_in;
-                    prev_dm_in = dm_in;
-                    // @(posedge clk);
-                    dp_in = ~dp_in;
-                    dm_in = ~dm_in;
-                    #(USB_BIT_PERIOD);
-                end
-                else begin
-                    prev_dp_in = dp_in;
-                    prev_dm_in = dm_in;
-                    dp_in = prev_dp_in;
-                    dm_in = prev_dm_in;
-                    // @(posedge clk);
-                    #(USB_BIT_PERIOD);
+        begin
+            logic prev_dp_in, prev_dm_in;
+            // dp_in=1;
+            // dm_in=0;
+            prev_dp_in=1;
+            prev_dm_in=0;
+    
+            // encoder
+            foreach (data_bytes[i]) begin
+                for(int bit_idx=0; bit_idx<8; bit_idx++) begin
+                    if(data_bytes[i][bit_idx]==0) begin
+                        prev_dp_in = dp_in;
+                        prev_dm_in = dm_in;
+                        // @(posedge clk);
+                        dp_in = ~dp_in;
+                        dm_in = ~dm_in;
+                        #(USB_BIT_PERIOD);
+                    end
+                    else begin
+                        prev_dp_in = dp_in;
+                        prev_dm_in = dm_in;
+                        dp_in = prev_dp_in;
+                        dm_in = prev_dm_in;
+                        // @(posedge clk);
+                        #(USB_BIT_PERIOD);
+                    end
                 end
             end
         end
@@ -167,10 +169,12 @@ module tb_usb_ahb_transceiver ();
     endtask;
 
     task send_byte;
-        input [7:0] data;
-        input [4:0] n;
+        begin
+            input [7:0] data;
+            input [4:0] n;
 
-        integer i;
+            integer i;
+        end
         begin
             for (i = 0; i < n; i++) begin
                 send_bit(data[i]);
@@ -180,190 +184,200 @@ module tb_usb_ahb_transceiver ();
     endtask
 
     task send_in_token()
-        //test_name = "SYNC BYTE";
-        send_byte(8'b0010_1010, 4'd8);
-        //#CLK_PERIOD;
-        @(negedge clk);
-        //test_name = "PID BYTE";
-        send_byte(8'b0111_0010, 4'd8);
-        #CLK_PERIOD;
-        @(negedge clk);
-        test_name = "ADDR BYTE";
-        send_byte(7'b010_1010, 4'd7);
-        @(negedge clk);
-        //test_name = "ENDP";
-        send_byte(4'b1010, 4'd4);
-        @(negedge clk);
-        //test_name = "CRC5";
-        send_byte(5'b01110, 4'd5);
-        @(negedge clk);
-        //test_name = "EOP";
-        dp_in = 0;
-        dm_in = 0;
-        #(DATA_PERIOD);
-        @(negedge clk);
-        #(DATA_PERIOD);
-        @(negedge clk);
-        dp_in = 1;
-        dm_in = 0;
-        #(DATA_PERIOD);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
+        begin
+            //test_name = "SYNC BYTE";
+            send_byte(8'b0010_1010, 4'd8);
+            //#CLK_PERIOD;
+            @(negedge clk);
+            //test_name = "PID BYTE";
+            send_byte(8'b0111_0010, 4'd8);
+            #CLK_PERIOD;
+            @(negedge clk);
+            test_name = "ADDR BYTE";
+            send_byte(7'b010_1010, 4'd7);
+            @(negedge clk);
+            //test_name = "ENDP";
+            send_byte(4'b1010, 4'd4);
+            @(negedge clk);
+            //test_name = "CRC5";
+            send_byte(5'b01110, 4'd5);
+            @(negedge clk);
+            //test_name = "EOP";
+            dp_in = 0;
+            dm_in = 0;
+            #(DATA_PERIOD);
+            @(negedge clk);
+            #(DATA_PERIOD);
+            @(negedge clk);
+            dp_in = 1;
+            dm_in = 0;
+            #(DATA_PERIOD);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+        end
     endtask
 
     task send_data0(input logic [3:0] num_bytes, input logic [31:0] data_in)
-        buffer_occupancy = '0;
-        @(negedge clk);
-        // SYNC BYTE
-        send_byte(8'b0010_1010, 4'd8);
-        @(negedge clk);
-        // PID BYTE      
-        send_byte(8'b0001_0100, 4'd8);
-        #CLK_PERIOD;
-        @(negedge clk);
-        //n byte data---------------------------------
-        integer i;
-        for(i = 0; i < num_bytes; i++) begin
-            send_byte(data_in[(i * 8) - 1 : i], 4'd8);
+        begin
+            buffer_occupancy = '0;
+            @(negedge clk);
+            // SYNC BYTE
+            send_byte(8'b0010_1010, 4'd8);
+            @(negedge clk);
+            // PID BYTE      
+            send_byte(8'b0001_0100, 4'd8);
+            #CLK_PERIOD;
+            @(negedge clk);
+            //n byte data---------------------------------
+            integer i;
+            for(i = 0; i < num_bytes; i++) begin
+                send_byte(data_in[(i * 8) - 1 : i], 4'd8);
+                @(negedge clk);
+            end
+            //CRC16 bits---------------------------------
+            //test_name = "CRC16";
+            send_byte(8'b1010_1110, 4'd8);
+            @(negedge clk);
+            //test_name = "CRC16-2";
+            send_byte(8'b0010_1010, 4'd8);
+            @(negedge clk);
+            //test_name = "EOP";
+            dp_in = 0;
+            dm_in = 0;
+            #(DATA_PERIOD);
+            @(negedge clk);
+            #(DATA_PERIOD);
+            @(negedge clk);
+            dp_in = 1;
+            dm_in = 0;
+            #(DATA_PERIOD);
+            @(negedge clk);
+            @(negedge clk);
             @(negedge clk);
         end
-        //CRC16 bits---------------------------------
-        //test_name = "CRC16";
-        send_byte(8'b1010_1110, 4'd8);
-        @(negedge clk);
-        //test_name = "CRC16-2";
-        send_byte(8'b0010_1010, 4'd8);
-        @(negedge clk);
-        //test_name = "EOP";
-        dp_in = 0;
-        dm_in = 0;
-        #(DATA_PERIOD);
-        @(negedge clk);
-        #(DATA_PERIOD);
-        @(negedge clk);
-        dp_in = 1;
-        dm_in = 0;
-        #(DATA_PERIOD);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
     endtask
 
     task send_data1(input logic [3:0] num_bytes, input logic [31:0] data_in)
-        buffer_occupancy = '0;
-        @(negedge clk);
-        // SYNC BYTE
-        send_byte(8'b0010_1010, 4'd8);
-        @(negedge clk);
-        // PID BYTE      
-        send_byte(8'b0110_1100, 4'd8);
-        #CLK_PERIOD;
-        @(negedge clk);
-        //n byte data---------------------------------
-        integer i;
-        for(i = 0; i < num_bytes; i++) begin
-            send_byte(data_in[(i * 8) - 1 : i], 4'd8);
+        begin
+            buffer_occupancy = '0;
+            @(negedge clk);
+            // SYNC BYTE
+            send_byte(8'b0010_1010, 4'd8);
+            @(negedge clk);
+            // PID BYTE      
+            send_byte(8'b0110_1100, 4'd8);
+            #CLK_PERIOD;
+            @(negedge clk);
+            //n byte data---------------------------------
+            integer i;
+            for(i = 0; i < num_bytes; i++) begin
+                send_byte(data_in[(i * 8) - 1 : i], 4'd8);
+                @(negedge clk);
+            end
+            //CRC16 bits---------------------------------
+            // "CRC16";
+            send_byte(8'b1010_1110, 4'd8);
+            @(negedge clk);
+            // "CRC16-2";
+            send_byte(8'b0010_1010, 4'd8);
+            @(negedge clk);
+            // "EOP";
+            dp_in = 0;
+            dm_in = 0;
+            #(DATA_PERIOD);
+            @(negedge clk);
+            #(DATA_PERIOD);
+            @(negedge clk);
+            dp_in = 1;
+            dm_in = 0;
+            #(DATA_PERIOD);
+            @(negedge clk);
+            @(negedge clk);
             @(negedge clk);
         end
-        //CRC16 bits---------------------------------
-        // "CRC16";
-        send_byte(8'b1010_1110, 4'd8);
-        @(negedge clk);
-        // "CRC16-2";
-        send_byte(8'b0010_1010, 4'd8);
-        @(negedge clk);
-        // "EOP";
-        dp_in = 0;
-        dm_in = 0;
-        #(DATA_PERIOD);
-        @(negedge clk);
-        #(DATA_PERIOD);
-        @(negedge clk);
-        dp_in = 1;
-        dm_in = 0;
-        #(DATA_PERIOD);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
     endtask
 
     task send_out_token
-        //test_name = "SYNC BYTE";
-        send_byte(8'b0010_1010, 4'd8);
-        //#CLK_PERIOD;
-        @(negedge clk);
-        //test_name = "PID BYTE";
-        send_byte(8'b0000_1010, 4'd8);
-        #CLK_PERIOD;
-        @(negedge clk);
-        test_name = "ADDR BYTE";
-        send_byte(7'b010_1010, 4'd7);
-        @(negedge clk);
-        //test_name = "ENDP";
-        send_byte(4'b1010, 4'd4);
-        @(negedge clk);
-        //test_name = "CRC5";
-        send_byte(5'b01110, 4'd5);
-        @(negedge clk);
-        //test_name = "EOP";
-        dp_in = 0;
-        dm_in = 0;
-        #(DATA_PERIOD);
-        @(negedge clk);
-        #(DATA_PERIOD);
-        @(negedge clk);
-        dp_in = 1;
-        dm_in = 0;
-        #(DATA_PERIOD);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
+        begin
+            //test_name = "SYNC BYTE";
+            send_byte(8'b0010_1010, 4'd8);
+            //#CLK_PERIOD;
+            @(negedge clk);
+            //test_name = "PID BYTE";
+            send_byte(8'b0000_1010, 4'd8);
+            #CLK_PERIOD;
+            @(negedge clk);
+            test_name = "ADDR BYTE";
+            send_byte(7'b010_1010, 4'd7);
+            @(negedge clk);
+            //test_name = "ENDP";
+            send_byte(4'b1010, 4'd4);
+            @(negedge clk);
+            //test_name = "CRC5";
+            send_byte(5'b01110, 4'd5);
+            @(negedge clk);
+            //test_name = "EOP";
+            dp_in = 0;
+            dm_in = 0;
+            #(DATA_PERIOD);
+            @(negedge clk);
+            #(DATA_PERIOD);
+            @(negedge clk);
+            dp_in = 1;
+            dm_in = 0;
+            #(DATA_PERIOD);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+        end
     endtask
 
     task send_ack_token
-        //test_name = "SYNC BYTE";
-        send_byte(8'b0010_1010, 4'd8);
-        //#CLK_PERIOD;
-        @(negedge clk);
-        //test_name = "PID BYTE";
-        send_byte(8'b0111_0010, 4'd8);
-        #CLK_PERIOD;
-        @(negedge clk);
-        test_name = "ADDR BYTE";
-        send_byte(7'b010_1010, 4'd7);
-        @(negedge clk);
-        //test_name = "ENDP";
-        send_byte(4'b1010, 4'd4);
-        @(negedge clk);
-        //test_name = "CRC5";
-        send_byte(5'b01110, 4'd5);
-        @(negedge clk);
-        //test_name = "EOP";
-        dp_in = 0;
-        dm_in = 0;
-        #(DATA_PERIOD);
-        @(negedge clk);
-        #(DATA_PERIOD);
-        @(negedge clk);
-        dp_in = 1;
-        dm_in = 0;
-        #(DATA_PERIOD);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
+        begin
+            //test_name = "SYNC BYTE";
+            send_byte(8'b0010_1010, 4'd8);
+            //#CLK_PERIOD;
+            @(negedge clk);
+            //test_name = "PID BYTE";
+            send_byte(8'b0111_0010, 4'd8);
+            #CLK_PERIOD;
+            @(negedge clk);
+            test_name = "ADDR BYTE";
+            send_byte(7'b010_1010, 4'd7);
+            @(negedge clk);
+            //test_name = "ENDP";
+            send_byte(4'b1010, 4'd4);
+            @(negedge clk);
+            //test_name = "CRC5";
+            send_byte(5'b01110, 4'd5);
+            @(negedge clk);
+            //test_name = "EOP";
+            dp_in = 0;
+            dm_in = 0;
+            #(DATA_PERIOD);
+            @(negedge clk);
+            #(DATA_PERIOD);
+            @(negedge clk);
+            dp_in = 1;
+            dm_in = 0;
+            #(DATA_PERIOD);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+            @(negedge clk);
+        end
     endtask
 
 
@@ -397,13 +411,15 @@ module tb_usb_ahb_transceiver ();
     endtask
 
     task decode_nrzi; //FOR JOEEEEEEEEE!!!!!
-        input [7:0] expected_decoded;
-        output logic match;
+        begin
+            input [7:0] expected_decoded;
+            output logic match;
 
-        integer i;
-        static integer prev_dp = 1;
-        logic [7:0] decoded;
-        logic [7:0] encoded_dp_output;
+            integer i;
+            static integer prev_dp = 1;
+            logic [7:0] decoded;
+            logic [7:0] encoded_dp_output;
+        end
         begin
             // sample
             for (int i = 0; i < 8; i++) begin
