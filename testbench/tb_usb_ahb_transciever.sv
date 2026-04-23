@@ -425,6 +425,8 @@ module tb_usb_ahb_transceiver ();
 
     logic prev_dp = 1;
 
+    logic prev_dp = 1;
+
     task decode_nrzi; //FOR JOEEEEEEEEE!!!!!
         input [7:0] expected_decoded;
         output logic match;
@@ -436,27 +438,25 @@ module tb_usb_ahb_transceiver ();
         logic pdp;
         begin
             pdp = prev_dp;
-            // sample
-            for (int i = 0; i < 8; i++) begin
-                    encoded_dp_output[i] = dp_out;
-                    #(USB_BIT_PERIOD);
-            end
 
             for (i = 0; i < 8; i++) begin
-                if (encoded_dp_output[i] != pdp) begin
-                    pdp = encoded_dp_output[i];
+                if (dp_out != pdp) begin
+                    pdp = dp_out;
                     decoded[i] = 0;
                     if(decoded[i] != expected_decoded[i]) begin
                         $display("bit %d doesnt match", i);
                     end
+                    #(USB_BIT_PERIOD);
                 end else begin
-                    pdp = encoded_dp_output[i];
+                    pdp = dp_out;
                     decoded[i] = 1;
                     if(decoded[i] != expected_decoded[i]) begin
                         $display("bit %d doesnt match", i);
                     end
+                    #(USB_BIT_PERIOD);
                 end
             end
+            
 
             prev_dp = pdp;
 
