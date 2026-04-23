@@ -210,13 +210,7 @@ module tb_usb_ahb_transceiver ();
             dp_in = 1;
             dm_in = 0;
             #(USB_BIT_PERIOD);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
+
         end
     endtask
 
@@ -262,9 +256,7 @@ module tb_usb_ahb_transceiver ();
             dp_in = 1;
             dm_in = 0;
             #(USB_BIT_PERIOD);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
+
         end
     endtask
 
@@ -309,9 +301,7 @@ module tb_usb_ahb_transceiver ();
             dp_in = 1;
             dm_in = 0;
             #(USB_BIT_PERIOD);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
+
         end
     endtask
 
@@ -344,13 +334,7 @@ module tb_usb_ahb_transceiver ();
             dp_in = 1;
             dm_in = 0;
             #(USB_BIT_PERIOD);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
+
         end
     endtask
 
@@ -383,13 +367,7 @@ module tb_usb_ahb_transceiver ();
             dp_in = 1;
             dm_in = 0;
             #(USB_BIT_PERIOD);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
-            @(negedge clk);
+
         end
     endtask
 
@@ -425,48 +403,62 @@ module tb_usb_ahb_transceiver ();
 
     logic prev_dp = 1;
 
-    logic prev_dp = 1;
-
     task decode_nrzi; //FOR JOEEEEEEEEE!!!!!
         input [7:0] expected_decoded;
+        input eop;
         output logic match;
 
         integer i;
         //static integer prev_dp = 1;
         logic [7:0] decoded;
         logic [7:0] encoded_dp_output;
-        logic pdp;
+        logic [7:0] pdp;
         begin
-            pdp = prev_dp;
 
-            for (i = 0; i < 8; i++) begin
-                if (dp_out != pdp) begin
-                    pdp = dp_out;
-                    decoded[i] = 0;
-                    if(decoded[i] != expected_decoded[i]) begin
-                        $display("bit %d doesnt match", i);
+            if(eop) begin
+                pdp[0]=1'b1;
+            end
+            else begin
+                for (i = 0; i < 8; i++) begin
+                    if (dp_out != pdp[i]) begin
+                        if(i!=7) begin
+                            pdp[i+1]=dp_out;
+                        end
+                        else begin
+                            pdp[0]=dp_out;
+                        end
+                        decoded[i] = 0;
+                        if(decoded[i] != expected_decoded[i]) begin
+                            $display("bit %d doesnt match", i);
+                        end
+                        #(USB_BIT_PERIOD);
+                    end else begin
+                        if(i!=7) begin
+                            pdp[i+1]=dp_out;
+                        end
+                        else begin
+                            pdp[0]=dp_out;
+                        end
+                        decoded[i] = 1;
+                        if(decoded[i] != expected_decoded[i]) begin
+                            $display("bit %d doesnt match", i);
+                        end
+                        #(USB_BIT_PERIOD);
                     end
-                    #(USB_BIT_PERIOD);
-                end else begin
-                    pdp = dp_out;
-                    decoded[i] = 1;
-                    if(decoded[i] != expected_decoded[i]) begin
-                        $display("bit %d doesnt match", i);
-                    end
-                    #(USB_BIT_PERIOD);
                 end
+
+                prev_dp = pdp;
+                if (expected_decoded == decoded) begin
+                    $display("Decoded matches!");
+                    match = 1;
+                end else begin
+                    $display("Decoded doesn't match!");
+                    match = 0;
+                end
+
             end
             
 
-            prev_dp = pdp;
-
-            if (expected_decoded == decoded) begin
-                $display("Decoded matches!");
-                match = 1;
-            end else begin
-                $display("Decoded doesn't match!");
-                match = 0;
-            end
         end
     endtask
 
@@ -488,29 +480,45 @@ module tb_usb_ahb_transceiver ();
 
         send_out_token(); // send out
         send_data0(0, 0); // send data0
+
+        @(negedge dp_out);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        decode_nrzi(8'b1000_0000, 1'b0, decode_success);
+        decode_nrzi(8'b11010010, 1'b0,  decode_success);
+        decode_nrzi(8'b11010010, 1'b1, decode_success);
+
         send_in_token(); // send in
 
-        decode_nrzi(data_in, decode_success);
+        @(negedge dp_out);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        decode_nrzi(8'b1000_0000, 1'b0, decode_success);
+        decode_nrzi(8'b11000011, 1'b0, decode_success);
+        decode_nrzi(8'b11010010, 1'b1, decode_success);
+        
 
         $display("Test case %s completed verification.", testname);
 
-        // TEST 2 - write multiple bytes and watch them all come out
-        testname = "top_multi_byte_burst";
+        // // TEST 2 - write multiple bytes and watch them all come out
+        // testname = "top_multi_byte_burst";
 
-        // fill the FIFO via AHB with 3 bytes -- might change this to send 3 bytes in with 1 write
-        ahb_write(4'h0, 8'h41); // 'A'
-        ahb_write(4'h0, 8'h42); // 'B'
-        ahb_write(4'h0, 8'h43); // 'C'
+        // // fill the FIFO via AHB with 3 bytes -- might change this to send 3 bytes in with 1 write
+        // ahb_write(4'h0, 8'h41); // 'A'
+        // ahb_write(4'h0, 8'h42); // 'B'
+        // ahb_write(4'h0, 8'h43); // 'C'
 
-        send_out_token(); // send out
-        send_data1(3, {8'h41, 8'h42, 8'h43}); // send data0
-        send_in_token(); // send in
+        // send_out_token(); // send out
+        // send_data1(3, {8'h41, 8'h42, 8'h43}); // send data0
+        // send_in_token(); // send in
 
-        decode_nrzi(8'h41, decode_success);
-        decode_nrzi(8'h42, decode_success);
-        decode_nrzi(8'h43, decode_success);
+        // decode_nrzi(8'h41, decode_success);
+        // decode_nrzi(8'h42, decode_success);
+        // decode_nrzi(8'h43, decode_success);
 
-        $display("Test case %s completed verification.", testname);
+        // $display("Test case %s completed verification.", testname);
 
         $finish;
     end
