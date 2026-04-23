@@ -25,6 +25,7 @@ module usb_rx #(
     logic [3:0] count6, n_count6;
     logic d_out, valid_bit;
     logic shift_enable;
+    logic [2:0] hold_rx_pack;
     
 
     nrzi_decoder nrzi (
@@ -369,21 +370,31 @@ module usb_rx #(
     end
 
     always_comb begin : RX_PACK
-        rx_packet = rx_packet;
+        hold_rx_pack = hold_rx_pack;
         if (state == PID && eight_bit_done) begin
             if (out0 == 8'b1110_0001) //OUT
-                rx_packet = 3'b001;
+                hold_rx_pack = 3'b001;
             else if (out0 == 8'b0110_1001) //IN
-                rx_packet = 3'b010;
+                hold_rx_pack = 3'b010;
             else if (out0 == 8'b1100_0011) //DATA0
-                rx_packet = 3'b011;
+                hold_rx_pack = 3'b011;
             else if (out0 == 8'b0100_1011) //DATA1
-                rx_packet = 3'b100;
+                hold_rx_pack = 3'b100;
             else if (out0 == 8'b1101_0010) //ACK
-                rx_packet = 3'b101;
+                hold_rx_pack = 3'b101;
             else
-                rx_packet = 3'b000;
-        end else if (state == IDLE) begin
+                hold_rx_pack = 3'b000;
+        end else if (state == PID) begin
+            hold_rx_pack = '0;
+        end
+    end
+
+    always_comb begin : SEND_RX_PACK
+        rx_packet = rx_packet;
+        if (state == STOP || state == IDLE) begin
+            rx_packet = hold_rx_pack;
+
+        end else begin
             rx_packet = '0;
         end
     end
