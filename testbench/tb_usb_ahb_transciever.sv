@@ -112,7 +112,7 @@ module tb_usb_ahb_transceiver ();
     //     end
     // endtask
 
-    task send_usb_packet(input logic [7:0] data_bytes [])
+    task send_usb_packet(input logic [7:0] data_bytes []);
         begin
             logic prev_dp_in, prev_dm_in;
             // dp_in=1;
@@ -183,7 +183,7 @@ module tb_usb_ahb_transceiver ();
         end
     endtask
 
-    task send_in_token()
+    task send_in_token();
         begin
             //test_name = "SYNC BYTE";
             send_byte(8'b0010_1010, 4'd8);
@@ -222,7 +222,7 @@ module tb_usb_ahb_transceiver ();
         end
     endtask
 
-    task send_data0(input logic [3:0] num_bytes, input logic [31:0] data_in)
+    task send_data0(input logic [3:0] num_bytes, input logic [31:0] data_in);
         begin
             buffer_occupancy = '0;
             @(negedge clk);
@@ -262,7 +262,7 @@ module tb_usb_ahb_transceiver ();
         end
     endtask
 
-    task send_data1(input logic [3:0] num_bytes, input logic [31:0] data_in)
+    task send_data1(input logic [3:0] num_bytes, input logic [31:0] data_in);
         begin
             buffer_occupancy = '0;
             @(negedge clk);
@@ -302,7 +302,7 @@ module tb_usb_ahb_transceiver ();
         end
     endtask
 
-    task send_out_token
+    task send_out_token;
         begin
             //test_name = "SYNC BYTE";
             send_byte(8'b0010_1010, 4'd8);
@@ -341,7 +341,7 @@ module tb_usb_ahb_transceiver ();
         end
     endtask
 
-    task send_ack_token
+    task send_ack_token;
         begin
             //test_name = "SYNC BYTE";
             send_byte(8'b0010_1010, 4'd8);
