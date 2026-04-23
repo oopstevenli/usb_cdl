@@ -57,7 +57,7 @@ module tb_usb_ahb_transceiver ();
     // tb signals
     string testname;
     integer i;
-    input logic [31:0] data_in;
+    logic [31:0] data_in;
 
     // clock generation
     localparam USB_BIT_PERIOD = 83.3ns; // 12MHz (approx 8 clock cycles)
@@ -169,12 +169,10 @@ module tb_usb_ahb_transceiver ();
     endtask;
 
     task send_byte;
-        begin
-            input [7:0] data;
-            input [4:0] n;
+        input [7:0] data;
+        input [4:0] n;
 
-            integer i;
-        end
+        integer i;
         begin
             for (i = 0; i < n; i++) begin
                 send_bit(data[i]);
@@ -185,33 +183,33 @@ module tb_usb_ahb_transceiver ();
 
     task send_in_token();
         begin
-            //test_name = "SYNC BYTE";
+            //testname = "SYNC BYTE";
             send_byte(8'b0010_1010, 4'd8);
             //#CLK_PERIOD;
             @(negedge clk);
-            //test_name = "PID BYTE";
+            //testname = "PID BYTE";
             send_byte(8'b0111_0010, 4'd8);
             #CLK_PERIOD;
             @(negedge clk);
-            test_name = "ADDR BYTE";
+            testname = "ADDR BYTE";
             send_byte(7'b010_1010, 4'd7);
             @(negedge clk);
-            //test_name = "ENDP";
+            //testname = "ENDP";
             send_byte(4'b1010, 4'd4);
             @(negedge clk);
-            //test_name = "CRC5";
+            //testname = "CRC5";
             send_byte(5'b01110, 4'd5);
             @(negedge clk);
-            //test_name = "EOP";
+            //testname = "EOP";
             dp_in = 0;
             dm_in = 0;
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
             dp_in = 1;
             dm_in = 0;
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
             @(negedge clk);
             @(negedge clk);
@@ -223,8 +221,9 @@ module tb_usb_ahb_transceiver ();
     endtask
 
     task send_data0(input logic [3:0] num_bytes, input logic [31:0] data_in);
+        integer i;
+        integer n;
         begin
-            buffer_occupancy = '0;
             @(negedge clk);
             // SYNC BYTE
             send_byte(8'b0010_1010, 4'd8);
@@ -234,28 +233,35 @@ module tb_usb_ahb_transceiver ();
             #CLK_PERIOD;
             @(negedge clk);
             //n byte data---------------------------------
-            integer i;
-            for(i = 0; i < num_bytes; i++) begin
-                send_byte(data_in[(i * 8) - 1 : i], 4'd8);
-                @(negedge clk);
+            if(num_bytes == 1) begin
+                send_byte(data_in[7:0], 4'd8);
+            end
+            if(num_bytes == 2) begin
+                send_byte(data_in[15:8], 4'd8);
+            end
+            if(num_bytes == 3) begin
+                send_byte(data_in[23:16], 4'd8);
+            end
+            if(num_bytes == 4) begin
+                send_byte(data_in[31:24], 4'd8);
             end
             //CRC16 bits---------------------------------
-            //test_name = "CRC16";
+            //testname = "CRC16";
             send_byte(8'b1010_1110, 4'd8);
             @(negedge clk);
-            //test_name = "CRC16-2";
+            //testname = "CRC16-2";
             send_byte(8'b0010_1010, 4'd8);
             @(negedge clk);
-            //test_name = "EOP";
+            //testname = "EOP";
             dp_in = 0;
             dm_in = 0;
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
             dp_in = 1;
             dm_in = 0;
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
             @(negedge clk);
             @(negedge clk);
@@ -263,8 +269,8 @@ module tb_usb_ahb_transceiver ();
     endtask
 
     task send_data1(input logic [3:0] num_bytes, input logic [31:0] data_in);
+        integer i;
         begin
-            buffer_occupancy = '0;
             @(negedge clk);
             // SYNC BYTE
             send_byte(8'b0010_1010, 4'd8);
@@ -274,10 +280,17 @@ module tb_usb_ahb_transceiver ();
             #CLK_PERIOD;
             @(negedge clk);
             //n byte data---------------------------------
-            integer i;
-            for(i = 0; i < num_bytes; i++) begin
-                send_byte(data_in[(i * 8) - 1 : i], 4'd8);
-                @(negedge clk);
+            if(num_bytes == 1) begin
+                send_byte(data_in[7:0], 4'd8);
+            end
+            if(num_bytes == 2) begin
+                send_byte(data_in[15:8], 4'd8);
+            end
+            if(num_bytes == 3) begin
+                send_byte(data_in[23:16], 4'd8);
+            end
+            if(num_bytes == 4) begin
+                send_byte(data_in[31:24], 4'd8);
             end
             //CRC16 bits---------------------------------
             // "CRC16";
@@ -289,13 +302,13 @@ module tb_usb_ahb_transceiver ();
             // "EOP";
             dp_in = 0;
             dm_in = 0;
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
             dp_in = 1;
             dm_in = 0;
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
             @(negedge clk);
             @(negedge clk);
@@ -304,33 +317,33 @@ module tb_usb_ahb_transceiver ();
 
     task send_out_token;
         begin
-            //test_name = "SYNC BYTE";
+            //testname = "SYNC BYTE";
             send_byte(8'b0010_1010, 4'd8);
             //#CLK_PERIOD;
             @(negedge clk);
-            //test_name = "PID BYTE";
+            //testname = "PID BYTE";
             send_byte(8'b0000_1010, 4'd8);
             #CLK_PERIOD;
             @(negedge clk);
-            test_name = "ADDR BYTE";
+            testname = "ADDR BYTE";
             send_byte(7'b010_1010, 4'd7);
             @(negedge clk);
-            //test_name = "ENDP";
+            //testname = "ENDP";
             send_byte(4'b1010, 4'd4);
             @(negedge clk);
-            //test_name = "CRC5";
+            //testname = "CRC5";
             send_byte(5'b01110, 4'd5);
             @(negedge clk);
-            //test_name = "EOP";
+            //testname = "EOP";
             dp_in = 0;
             dm_in = 0;
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
             dp_in = 1;
             dm_in = 0;
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
             @(negedge clk);
             @(negedge clk);
@@ -343,33 +356,33 @@ module tb_usb_ahb_transceiver ();
 
     task send_ack_token;
         begin
-            //test_name = "SYNC BYTE";
+            //testname = "SYNC BYTE";
             send_byte(8'b0010_1010, 4'd8);
             //#CLK_PERIOD;
             @(negedge clk);
-            //test_name = "PID BYTE";
+            //testname = "PID BYTE";
             send_byte(8'b0111_0010, 4'd8);
             #CLK_PERIOD;
             @(negedge clk);
-            test_name = "ADDR BYTE";
+            testname = "ADDR BYTE";
             send_byte(7'b010_1010, 4'd7);
             @(negedge clk);
-            //test_name = "ENDP";
+            //testname = "ENDP";
             send_byte(4'b1010, 4'd4);
             @(negedge clk);
-            //test_name = "CRC5";
+            //testname = "CRC5";
             send_byte(5'b01110, 4'd5);
             @(negedge clk);
-            //test_name = "EOP";
+            //testname = "EOP";
             dp_in = 0;
             dm_in = 0;
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
             dp_in = 1;
             dm_in = 0;
-            #(DATA_PERIOD);
+            #(USB_BIT_PERIOD);
             @(negedge clk);
             @(negedge clk);
             @(negedge clk);
@@ -381,7 +394,7 @@ module tb_usb_ahb_transceiver ();
     endtask
 
 
-    task check_multi_byte_usb(input logic [7:0] expected_payload [], output_logic decoded []);
+    task check_multi_byte_usb(input logic [7:0] expected_payload [], output logic decoded []);
         logic [7:0] captured_byte;
         begin
             // wait for d_mode and skip sync + PID (16 bits total)
@@ -411,15 +424,13 @@ module tb_usb_ahb_transceiver ();
     endtask
 
     task decode_nrzi; //FOR JOEEEEEEEEE!!!!!
-        begin
-            input [7:0] expected_decoded;
-            output logic match;
+        input [7:0] expected_decoded;
+        output logic match;
 
-            integer i;
-            static integer prev_dp = 1;
-            logic [7:0] decoded;
-            logic [7:0] encoded_dp_output;
-        end
+        integer i;
+        static integer prev_dp = 1;
+        logic [7:0] decoded;
+        logic [7:0] encoded_dp_output;
         begin
             // sample
             for (int i = 0; i < 8; i++) begin
@@ -464,7 +475,7 @@ module tb_usb_ahb_transceiver ();
         ahb_write(4'h0, data_in); // write data
 
         send_out_token(); // send out
-        send_data0(); // send data0
+        send_data0(0, 0); // send data0
         send_in_token(); // send in
 
         decode_nrzi(data_in, decode_success);
@@ -480,7 +491,7 @@ module tb_usb_ahb_transceiver ();
         ahb_write(4'h0, 8'h43); // 'C'
 
         send_out_token(); // send out
-        send_data0(); // send data0
+        send_data1(3, {8'h41, 8'h42, 8'h43}); // send data0
         send_in_token(); // send in
 
         decode_nrzi(8'h41, decode_success);
