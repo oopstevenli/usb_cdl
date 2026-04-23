@@ -89,7 +89,7 @@ module tb_usb_rx ();
     input [7:0] expected_decoded;
 
     integer i;
-    integer prev_dp = 1;
+    static integer prev_dp = 1;
     logic [7:0] decoded;
     begin
         for (i = 0; i < 8; i++) begin
