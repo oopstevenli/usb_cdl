@@ -1,4 +1,4 @@
-module ahb_usb_transceiver (
+module usb_ahb_transceiver (
     input logic clk,
     input logic n_rst,
     input logic hsel,
@@ -83,7 +83,7 @@ module ahb_usb_transceiver (
         .clk(clk),
         .n_rst(n_rst),
         .tx_data(tx_data),
-        .store_tx(store_tx_data),
+        .store_tx_data(store_tx_data),
         .get_rx_data(get_rx_data),
         .rx_data(rx_data),
         .rx_packet_data(rx_packet_data),
@@ -110,7 +110,7 @@ module ahb_usb_transceiver (
         .flush(rx_flush)
     );
 
-    usb_tx TX_MODULE (
+    USB_tx TX_MODULE (
         .clk(clk),
         .n_rst(n_rst),
         .DP_OUT(dp_out),
