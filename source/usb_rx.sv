@@ -389,7 +389,7 @@ module usb_rx #(
                 clear_timer = 1;
             end
             STOP: begin
-                count_enable_timer = 1;
+                count_enable_timer = 0;
                 rx_transfer_active = 0;
                 rx_data_ready = 1;
                 //clear_timer = 1;
