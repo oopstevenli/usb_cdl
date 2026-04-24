@@ -18,7 +18,7 @@ module nrzi_decoder (
 
     state_t state, next_state;
     logic dp_q, dm_q;
-    logic next_dorig;
+    //logic next_dorig;
     logic edge_state, n_edge_state;
     logic edge2, edge3, hold_edge;
 
