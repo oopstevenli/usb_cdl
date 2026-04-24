@@ -72,25 +72,25 @@ module tb_usb_ahb_transceiver ();
 
     // tasks!!
 
-    task ahb_write(input logic [3:0] addr, input logic [31:0] data);
+    task ahb_write(input logic [3:0] addr, input logic [31:0] data, input logic [2:0] size);
         logic [31:0] data_arr []; // dynamic array to talk to BFM
         begin
             data_arr = new [1]; // dynamic sizing
             data_arr[0] = data; // put our data in the first (and only) box
             //              Fields: hsel,  R/W, addr, data, exp err,         size, burst, chk prdata or not
-            BFM.enqueue_transaction(1'b1, 1'b1, addr, data_arr, 1'b0, 3'b010, BYTE_SIZE, 1'b0);
+            BFM.enqueue_transaction(1'b1, 1'b1, addr, data_arr, 1'b0, size, BYTE_SIZE, 1'b0);
             BFM.run_transactions(1);
             BFM.wait_done();
         end
     endtask
 
-    task ahb_read(input logic [3:0] addr, input logic [31:0] expected);
+    task ahb_read(input logic [3:0] addr, input logic [31:0] expected, input logic [2:0] size);
         logic [31:0] data_arr [];
         begin
             data_arr = new [1]; // same same
             data_arr[0] = expected;
             //              Fields: hsel,  R/W, addr, data,     exp err,  size,   burst,  chk prdata or not
-            BFM.enqueue_transaction(1'b1, 1'b0, addr, data_arr, 1'b0,     3'b010, 3'b0,   1'b1);
+            BFM.enqueue_transaction(1'b1, 1'b0, addr, data_arr, 1'b0,     size, 3'b0,   1'b1);
             BFM.run_transactions(1);
             BFM.wait_done();
         end
@@ -169,6 +169,7 @@ module tb_usb_ahb_transceiver ();
     task send_in_token();
         begin
             @(negedge clk);
+            
             //test_name = "SYNC BYTE";
             send_byte(8'b0010_1010, 4'd8);
             #(CLK_PERIOD * 5);
@@ -241,6 +242,7 @@ module tb_usb_ahb_transceiver ();
                 @(negedge clk);
                 send_byte(data_in[31:24], 4'd8);
             end
+            @(negedge clk);
             //CRC16 bits---------------------------------
             //testname = "CRC16";
             send_byte(8'b1010_1110, 4'd8);
@@ -281,15 +283,29 @@ module tb_usb_ahb_transceiver ();
             if(num_bytes == 1) begin
                 send_byte(data_in[7:0], 4'd8);
             end
+            //ahb_read(4'h4, 32'h80);
             if(num_bytes == 2) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
                 send_byte(data_in[15:8], 4'd8);
             end
             if(num_bytes == 3) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[15:8], 4'd8);
+                @(negedge clk);
                 send_byte(data_in[23:16], 4'd8);
             end
             if(num_bytes == 4) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[15:8], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[23:16], 4'd8);
+                @(negedge clk);
                 send_byte(data_in[31:24], 4'd8);
             end
+            @(negedge clk);
             //CRC16 bits---------------------------------
             // "CRC16";
             send_byte(8'b1010_1110, 4'd8);
@@ -359,17 +375,18 @@ module tb_usb_ahb_transceiver ();
         //#CLK_PERIOD;
         @(negedge clk);
         //test_name = "PID BYTE";
-        send_byte(7'b0001_1011, 4'd7);
+        send_byte(8'b0001_1011, 4'd8);
         @(negedge clk);
+        // "EOP";
         dp_in = 0;
-        dm_in = 1;
-        #(CLK_PERIOD * 6);
+        dm_in = 0;
+        #(USB_BIT_PERIOD);
+        @(negedge clk);
+        #(USB_BIT_PERIOD);
         @(negedge clk);
         dp_in = 1;
         dm_in = 0;
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
+        #(USB_BIT_PERIOD);
 
         end
     endtask
@@ -483,11 +500,11 @@ module tb_usb_ahb_transceiver ();
         //TEST 1 - write a byte and watch it come out
         testname = "end_to_host_verified";
         send_in_token();
-        ahb_read(4'h4, 32'h2);
-        ahb_write(4'hd, 32'h1);
-        ahb_read(4'h8, 32'h0);
-        ahb_write(4'h0, 32'h53);
-        ahb_write(4'hc, 32'h1);
+        ahb_read(4'h4, 32'h2, 3'b1);
+        ahb_write(4'hd, 32'h1, 3'b0);
+        ahb_read(4'h8, 32'h0, 3'b0);
+        ahb_write(4'h0, 32'h53, 3'b0);
+        ahb_write(4'hc, 32'h1, 3'b0);
         @(negedge dp_out);
         @(posedge clk);
         @(posedge clk);
@@ -499,26 +516,24 @@ module tb_usb_ahb_transceiver ();
         decode_nrzi(8'b1000_0010, 1'b0,  decode_success);
         decode_nrzi(8'h0, 1'b1, decode_success);
         wait(d_mode == 0);
-        ahb_read(4'h4, 32'h2);
-        ahb_write(4'hc, 32'h0);
+        ahb_read(4'h4, 32'h2, 3'b1);
+        ahb_write(4'hc, 32'h0, 3'b0);
         send_ack_token();
-        // ahb_read(4'h4, 32'h8);
+        ahb_read(4'h4, 32'h8, 3'h1);
         $display("Test case %s completed verification.", testname);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
 
 
         testname = "end to host multiple bytes";
         send_in_token();
-        ahb_read(4'h4, 32'h2);
-        ahb_write(4'hd, 32'h1);
-        ahb_read(4'h8, 32'h0);
-        ahb_write(4'h0, 32'h12345678);
-        ahb_write(4'h0, 32'hab);
-        ahb_write(4'hc, 32'h2);
+        ahb_read(4'h4, 32'h2, 3'b1);
+        ahb_write(4'hd, 32'h1, 3'b0);
+        ahb_read(4'h8, 32'h0, 3'b0);
+        ahb_write(4'h0, 32'h12345678, 3'b10);
+        ahb_write(4'h0, 32'hab, 3'b0);
+        ahb_write(4'hc, 32'h2, 3'b0);
         @(negedge dp_out);
         @(posedge clk);
         @(posedge clk);
@@ -534,51 +549,50 @@ module tb_usb_ahb_transceiver ();
         decode_nrzi(8'hac, 1'b0,  decode_success);
         decode_nrzi(8'h0, 1'b1, decode_success);
         wait(d_mode == 0);
-        ahb_read(4'h4, 32'h2);
-        ahb_write(4'hc, 32'h0);
+        ahb_read(4'h4, 32'h2, 3'b0);
+        ahb_write(4'hc, 32'h0, 3'b0);
         send_ack_token();
-        ahb_read(4'h4, 32'h8);
+        ahb_read(4'h4, 32'h8, 3'b0);
         $display("Test case %s completed verification.", testname);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
 
-        testname = "end to host multiple bytes";
+
+        testname = "end to host data error";
         send_in_token();
-        ahb_read(4'h4, 32'h2);
-        ahb_write(4'hd, 32'h1);
-        ahb_read(4'h8, 32'h0);
-        ahb_write(4'h0, 32'h12345678);
-        ahb_write(4'h0, 32'hab);
-        ahb_write(4'hc, 32'h2);
+        ahb_read(4'h4, 32'h2, 3'b1);
+        ahb_write(4'hd, 32'h1, 3'b0);
+        ahb_read(4'h8, 32'h0, 3'b0);
+        ahb_write(4'hc, 32'h1, 3'b0);
         @(negedge dp_out);
         @(posedge clk);
-        @(posedge clk);
-        @(posedge clk);
         decode_nrzi(8'b1000_0000, 1'b0, decode_success);
-        decode_nrzi(8'b01001011, 1'b0,  decode_success); 
-        decode_nrzi(8'h78, 1'b0,  decode_success);
-        decode_nrzi(8'h56, 1'b0,  decode_success);
-        decode_nrzi(8'h34, 1'b0,  decode_success);
-        decode_nrzi(8'h12, 1'b0,  decode_success);
-        decode_nrzi(8'hab, 1'b0,  decode_success);
-        decode_nrzi(8'h66, 1'b0,  decode_success);
-        decode_nrzi(8'hac, 1'b0,  decode_success);
-        decode_nrzi(8'h0, 1'b1, decode_success);
+        // decode_nrzi(8'b11000011, 1'b0,  decode_success); 
         wait(d_mode == 0);
-        ahb_read(4'h4, 32'h2);
-        ahb_write(4'hc, 32'h0);
-        send_ack_token();
-        ahb_read(4'h4, 32'h8);
+        ahb_write(4'hc, 32'h0, 3'b0);
+        ahb_read(4'h6, 32'h100, 3'b1);
+        decode_nrzi(8'h0, 1'b1, decode_success);
+
+    
         $display("Test case %s completed verification.", testname);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
 
         testname = "host to end";
         send_out_token();
-        ahb_read(4'h4, 32'h4);
-        ahb_write(4'hd, 32'h1);
-        ahb_write(4'hd, 32'h0);
-        ahb_read(4'h8, 32'h0);
+        ahb_read(4'h4, 32'h4, 3'b1);
+        ahb_write(4'hd, 32'h1, 3'b0);
+        ahb_write(4'hd, 32'h0, 3'b0);
+        ahb_read(4'h8, 32'h0, 3'b0);
         send_data0(4'd4, 32'b0101_0101_1010_1010_0101_0101_1010_1010);
-        ahb_read(4'h4, 32'h10);
-        ahb_write(4'hc, 32'h3); //ACK
+        ahb_read(4'h4, 32'h10, 3'b1);
+        ahb_write(4'hc, 32'h3, 3'b0); //ACK
         @(negedge dp_out);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
         @(posedge clk);
         @(posedge clk);
         @(posedge clk);
@@ -586,97 +600,15 @@ module tb_usb_ahb_transceiver ();
         decode_nrzi(8'b1101_0010, 1'b0,  decode_success); //ack pid
         decode_nrzi(8'h0, 1'b1, decode_success);
         wait(d_mode == 0);
-        ahb_write(4'hc, 32'h0);
-        ahb_read(4'h8, 32'h4);
-        ahb_read(4'h0, 32'h01); //wrong order please fix
-        ahb_read(4'h0, 32'h01);
-        ahb_read(4'h0, 32'h01);
-        ahb_read(4'h0, 32'h01);
-        ahb_write(4'hd, 32'h0);
+        ahb_write(4'hc, 32'h0, 3'b0);
+        ahb_read(4'h8, 32'h4, 3'b0);
+        ahb_read(4'h0, 32'h01, 3'b0); //wrong order please fix
+        ahb_read(4'h0, 32'h01, 3'b0);
+        ahb_read(4'h0, 32'h01, 3'b0);
+        ahb_read(4'h0, 32'h01, 3'b0);
+        ahb_write(4'hd, 32'h0, 3'b0);
         
         $display("Test case %s completed verification.", testname);
-        // testname="end to host data error"
-        // send_in_token();
-        // ahb_read(4'h4, 32'h2);
-        // ahb_write(4'hd, 32'h1);
-        // ahb_read(4'h8, 32'h0);
-        // ahb_write(4'hc, 32'h1);
-
-        // decode_nrzi(8'b1000_0000, 1'b0, decode_success);
-        // decode_nrzi(8'b11010010, 1'b0,  decode_success);
-        // ahb_read(4'h6, 32'h100);
-
-        // $display("Test case %s completed verification.", testname);
-
-        // testname="end to host ack error"
-        // send_in_token();
-        // ahb_read(4'h4, 32'h2);
-        // ahb_write(4'hd, 32'h1);
-        // ahb_read(4'h8, 32'h0);
-        // ahb_write(4'h0, 32'h12345678);
-        // ahb_write(4'hc, 32'h1);
-
-        // decode_nrzi(8'b1000_0000, 1'b0, decode_success);
-        // decode_nrzi(8'b01001011, 1'b0,  decode_success);
-        // decode_nrzi(8'h78, 1'b0, decode_success);
-        // decode_nrzi(8'h56, 1'b0, decode_success);
-        // decode_nrzi(8'h34, 1'b0, decode_success);
-        // decode_nrzi(8'h12, 1'b0, decode_success);
-        // decode_nrzi(8'hab, 1'b1, decode_success);
-
-        // send_IN();
-        // ahb_read(4'h4, 32'h8);
-        // $display("Test case %s completed verification.", testname);
-
-
-        
-
-        // ahb_write(4'hD, 32'h1); // clear
-        // testname= "wowie zowie ";
-        // data_in = 32'h53;
-        // ahb_write(4'h0, data_in); // write data
-
-        // send_out_token(); // send out
-        // send_data0(0, 0); // send data0
-
-        // @(negedge dp_out);
-        // @(posedge clk);
-        // @(posedge clk);
-        // @(posedge clk);
-        // decode_nrzi(8'b1000_0000, 1'b0, decode_success);
-        // decode_nrzi(8'b11010010, 1'b0,  decode_success);
-        // decode_nrzi(8'b11010010, 1'b1, decode_success);
-
-        // send_in_token(); // send in
-
-        // @(negedge dp_out);
-        // @(posedge clk);
-        // @(posedge clk);
-        // @(posedge clk);
-        // decode_nrzi(8'b1000_0000, 1'b0, decode_success);
-        // decode_nrzi(8'b11000011, 1'b0, decode_success);
-        // decode_nrzi(8'b11010010, 1'b1, decode_success);
-        
-
-        // $display("Test case %s completed verification.", testname);
-
-        // // TEST 2 - write multiple bytes and watch them all come out
-        // testname = "top_multi_byte_burst";
-
-        // // fill the FIFO via AHB with 3 bytes -- might change this to send 3 bytes in with 1 write
-        // ahb_write(4'h0, 8'h41); // 'A'
-        // ahb_write(4'h0, 8'h42); // 'B'
-        // ahb_write(4'h0, 8'h43); // 'C'
-
-        // send_out_token(); // send out
-        // send_data1(3, {8'h41, 8'h42, 8'h43}); // send data0
-        // send_in_token(); // send in
-
-        // decode_nrzi(8'h41, decode_success);
-        // decode_nrzi(8'h42, decode_success);
-        // decode_nrzi(8'h43, decode_success);
-
-        // $display("Test case %s completed verification.", testname);
 
         $finish;
     end
