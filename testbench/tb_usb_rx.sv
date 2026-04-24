@@ -279,7 +279,26 @@ module tb_usb_rx ();
         #(DATA_PERIOD);
         
         //=============================================
-        
+        @(negedge clk);
+        test_name = "ACK";
+        //test_name = "SYNC BYTE";
+        send_byte(8'b0010_1010, 4'd8);
+        #(CLK_PERIOD * 5);
+        //#CLK_PERIOD;
+        @(negedge clk);
+        //test_name = "PID BYTE";
+        send_byte(8'b0001_1011, 4'd8);
+        @(negedge clk);
+
+        dp_in = 0;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        #(DATA_PERIOD);
+        @(negedge clk);
+        dp_in = 1;
+        dm_in = 0;
+        #(DATA_PERIOD);
         @(negedge clk);
         test_name = "IN TOKEN";
         //test_name = "SYNC BYTE";
@@ -317,26 +336,7 @@ module tb_usb_rx ();
         @(negedge clk);
         @(negedge clk);
         //=============================================
-        @(negedge clk);
-        @(negedge clk);
-        test_name = "ACK";
-        //test_name = "SYNC BYTE";
-        send_byte(8'b0010_1010, 4'd8);
-        #(CLK_PERIOD * 5);
-        //#CLK_PERIOD;
-        @(negedge clk);
-        //test_name = "PID BYTE";
-        send_byte(8'b0001_1011, 4'd8);
-        @(negedge clk);
-        dp_in = 1;
-        dm_in = 0;
-    
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
-        @(negedge clk);
+        
         test_name = "Invalid sync";
         //test_name = "SYNC BYTE";
         send_byte(8'b0000_0000, 4'd8);
@@ -377,7 +377,7 @@ module tb_usb_rx ();
         @(negedge clk);
         //test_name = "BIT STUFFED";
         //byte data---------------------------------
-        send_byte(8'b1100_0000, 4'd8);
+        send_byte(8'b1111_1110, 4'd8);
         @(negedge clk);
         send_byte(81'b1, 4'd1);
         @(negedge clk);
@@ -433,14 +433,21 @@ module tb_usb_rx ();
         send_byte(8'b0011_0011, 4'd8);
         @(negedge clk);
         send_byte(8'b0001_0101, 4'd8);
-        
-
-        for (i = 0; i < 5; i++) begin
         @(negedge clk);
         send_byte(8'b0101_0100, 4'd8);
         @(negedge clk);
         send_byte(8'b0001_0101, 4'd8);
-        end
+        @(negedge clk);
+        send_byte(8'b0101_0100, 4'd8);
+        @(negedge clk);
+        send_byte(8'b0001_0101, 4'd8);
+        @(negedge clk);
+        send_byte(8'b0101_0100, 4'd8);
+        @(negedge clk);
+        send_byte(8'b0001_0101, 4'd8);
+        
+        
+        
         //#(CLK_PERIOD * 5);
         @(negedge clk);
         //CRC16 bits---------------------------------
