@@ -211,7 +211,7 @@ module usb_ahb_subordinate (
     write_state_t next_write_state;
     logic [3:0] write_mask;
     logic [31:0] bypassed_reg_data;
-    logic [31:0] next_hrdata;
+    // logic [31:0] next_hrdata;
     logic hready_out_int;
     logic [7:0] next_flush_ctrl;
     
@@ -232,7 +232,7 @@ module usb_ahb_subordinate (
             err_state <= IDLE_E;
             write_state <= IDLE_W;
             byte_cnt <= 2'b00;
-            HRDATA <= 32'h0;
+            // HRDATA <= 32'h0;
             reg_tx_ctrl <= 8'h00;
             reg_flush_ctrl <= 8'h00;
             reg_status <= 8'h00;
@@ -251,7 +251,7 @@ module usb_ahb_subordinate (
             err_state <= next_err_state;
             write_state <= next_write_state;
             byte_cnt <= next_byte_cnt;
-            HRDATA <= next_hrdata;
+            // HRDATA <= next_hrdata;
             data_type <= next_data_type;
 
             reg_flush_ctrl <= next_flush_ctrl;
@@ -280,7 +280,7 @@ module usb_ahb_subordinate (
 
     // next_tx_ctrl and next_flush_ctrl logic
     always_comb begin
-        next_flush_ctrl = reg_flush_ctrl;
+        next_flush_ctrl = '0;
         if((reg_haddr[3:2] == REG_CONTROL)) begin           
             if(reg_wen && (reg_haddr[1:0] == OFF_FLUSH)) begin
                 next_flush_ctrl = HWDATA[15:8]; // write to 0xD
@@ -341,6 +341,15 @@ module usb_ahb_subordinate (
     // Local HREADY and HRESP Logic
     // HREADY stops bus for errors and for flow controls
     // HRESP only goes high if theres an error
+    logic [7:0] prev_buffer_occ;
+    always_ff @(posedge HCLK, negedge n_rst) begin
+        if(!n_rst) begin
+            prev_buffer_occ<='0;
+        end
+        else begin
+            prev_buffer_occ<=buffer_occupancy;
+        end
+    end
     always_comb begin
         hready_out_int = 1'b1; 
         HRESP = 1'b0;
@@ -356,10 +365,10 @@ module usb_ahb_subordinate (
             if (write_state == BUSY_W) begin
                 hready_out_int = 1'b0; // hold up the bus when busy
             end else if (reg_haddr[3:2] == REG_DATA_BUFF) begin
-                if (reg_hwrite && buffer_occupancy >= 7'd64) begin // hold up bus from reading when fifo is full
+                if (reg_hwrite && prev_buffer_occ >= 7'd64) begin // hold up bus from reading when fifo is full
                     hready_out_int = 1'b0;
                 end
-                if (!reg_hwrite && buffer_occupancy == 7'd0) begin // hold up bus from reading when fifo is empty
+                if (!reg_hwrite && prev_buffer_occ == 7'd0) begin // hold up bus from reading when fifo is empty
                     hready_out_int = 1'b0;
                 end
             end
@@ -419,34 +428,97 @@ module usb_ahb_subordinate (
             end
         end
 
-        next_hrdata = 32'h0;
+        // next_hrdata = 32'h0;
         if (active_read) begin
-            next_hrdata = read_reg_data & read_mask; // update next output with the right size request
+            HRDATA = read_reg_data & read_mask; // update next output with the right size request
         end
     end
 
+    logic [7:0] tx1,tx2,tx3,tx1n,tx2n,tx3n,tx_data_next;
+    logic [2:0] ct;
+    logic [2:0] sizestay, sizestay_next;
+    always_comb begin
+        sizestay_next=sizestay;
+        if(HWRITE && HSEL && (reg_haddr[3:2] == REG_DATA_BUFF)) begin
+            if(HSIZE==0) begin
+                sizestay_next=1;
+            end
+            else if(HSIZE==1) begin
+                sizestay_next=2;
+            end
+            else if(HSIZE==2) begin
+                sizestay_next=4;
+            end
+        end
+    end
+    always_ff @(posedge HCLK, negedge n_rst) begin
+        if(!n_rst) begin
+            tx_data<=0;
+            tx1<=0;
+            tx2<=0;
+            tx3<=0;
+            ct<='0;
+            sizestay<=0;
+        end
+        else begin
+            sizestay<=sizestay_next;
+            if(reg_hwrite && reg_hsel && (reg_haddr[3:2] == REG_DATA_BUFF)) begin
+                if(write_state == BUSY_W || HREADY) begin
+                    if(ct==sizestay_next) begin
+                        store_tx_data=0;
+                        ct<=0;
+                    end
+                    else begin
+                        tx_data<=HWDATA[7:0];
+                        tx1<=HWDATA[15:8];
+                        tx2<=HWDATA[23:16];
+                        tx3<=HWDATA[31:24];
+                        store_tx_data=1;
+                        ct<=ct+1;
+                    end
+                end
+            end
+            else begin
+                if(ct>=sizestay) begin
+                    store_tx_data=0;
+                    ct<=0;
+                end
+                else if(store_tx_data==1) begin
+                    ct<=ct+1;
+                end
+                tx_data<=tx1;
+                tx1<=tx2;
+                tx2<=tx3;
+                tx3<='0;
+            end
+        end
+    end
     // Data Buffer Steering Logic
     always_comb begin
-        store_tx_data = 1'b0;
+        // store_tx_data = 1'b0;
         get_rx_data = 1'b0;
-        tx_data = 8'h0;
-        if (reg_hsel && (reg_haddr[3:2] == REG_DATA_BUFF)) begin
-            if (reg_hwrite) begin
+        // tx_data='0;
+        // if (reg_hsel && (reg_haddr[3:2] == REG_DATA_BUFF)) begin
+            // if (reg_hwrite) begin
                 // write to data buffer
-                if (write_state == BUSY_W) begin
-                    if (buffer_occupancy < 7'd64) begin
-                        store_tx_data = 1'b1;
-                        tx_data = HWDATA[(8 * byte_cnt) +: 8];
-                    end
-                end else if (HREADY) begin
-                    store_tx_data = 1'b1;
-                    tx_data = HWDATA[(8 * reg_haddr[1:0]) +: 8];
-                end
-            end else if (HREADY && HWDATA == '0 && HSEL) begin
+                // if (write_state == BUSY_W) begin
+                    // if (buffer_occupancy < 7'd64) begin
+                        // store_tx_data = 1'b1;
+                        // tx_data = HWDATA[(8 * byte_cnt) +: 8];
+                        // tx_data = HWDATA[7:0];
+                    // end
+                // end else if (HREADY) begin
+                    // store_tx_data = 1'b1;
+                    // tx_data = HWDATA[(8 * reg_haddr[1:0]) +: 8];
+                    // tx_data = HWDATA[7:0];
+                
+                // end
+            // end else 
+            if (HREADY && HWDATA == '0 && HSEL && (reg_haddr[3:2] == HADDR) && HTRANS!=0 && !HWRITE) begin
                 // read from data buffer
                 get_rx_data = 1'b1; // pop from FIFO
             end
-        end
+    //     end
     end
 
     always_comb begin
