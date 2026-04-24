@@ -155,12 +155,18 @@ module usb_ahb_subordinate (
         if(tx_transfer_active) begin
             next_sending_data = 1;
             host_err = 0;
-        end else if(rx_ack_received) begin
+        end
+        if(tx_error) begin
+            next_sending_data = 0;
+        end
+        if(sending_data==1) begin
+          if(rx_ack_received) begin
             next_sending_data = 0;
             host_err = 0;
-        end else if(rx_data0_received || rx_data1_received || rx_in_token || rx_out_token) begin
-            next_sending_data = 0;
-            host_err = 1;            
+            end else if((rx_data0_received || rx_data1_received || rx_in_token || rx_out_token) && ~tx_error) begin
+                next_sending_data = 0;
+                host_err = 1;            
+            end
         end
 
     end
