@@ -127,7 +127,7 @@ always_ff @(posedge clk, negedge n_rst) begin
         crc<='0;
         crc_out<='0;
     end
-    else if(state==SEND_DATA || state==LOAD_DATA) begin
+    else if(state==SEND_DATA || state==LOAD_DATA || state==GET_DATA) begin
         crc<=crc_next;
         crc_out<=~(crc_next);
     end
@@ -147,7 +147,7 @@ always_comb begin//looped over send data
             crc_next= {1'b0, crc[15:1]};
         end
     end
-    else if(state==SEND_DATA || state==LOAD_DATA) begin
+    else if(state==SEND_DATA || state==LOAD_DATA || state==GET_DATA) begin
         crc_next=crc;
     end
     else begin
