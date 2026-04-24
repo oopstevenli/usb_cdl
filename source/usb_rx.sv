@@ -26,6 +26,7 @@ module usb_rx #(
     logic valid_bit;
     logic shift_enable;
     logic [2:0] hold_rx_pack, n_hold_rx_pack;
+    logic stuff_error;
     
 
     nrzi_decoder nrzi (
@@ -138,9 +139,12 @@ module usb_rx #(
 
     always_comb begin
         valid_bit = 1;
+        stuff_error = '0;
 
-        if (count6 >= 4'd6 && d_orig == 1'b0) begin
+        if (count6 == 4'd6 && d_orig == 1'b0) begin
             valid_bit = '0;
+        end else if (count6 == 4'd6 && d_orig == 1'b1) begin
+            stuff_error = 1;
         end
     end
     //==========================================================
@@ -224,7 +228,7 @@ module usb_rx #(
 
             end
             LOAD_DATA: begin
-                if (buffer_occupancy == 7'd64)
+                if ((buffer_occupancy == 7'd64) || stuff_error)
                     next_state = DATA_ERR;
                 else if (eop_detected)
                     next_state = CRC16;
