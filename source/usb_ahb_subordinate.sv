@@ -131,7 +131,7 @@ module usb_ahb_subordinate (
 
     logic sending_data;
     logic next_sending_data;
-    logic next_hresp;
+    //logic next_hresp;
 
     // signal definitions moved from top level to here
     assign next_status = {
@@ -304,7 +304,7 @@ module usb_ahb_subordinate (
     always_comb begin
         next_err_state = err_state;
         case (err_state)
-            IDLE_E: if (addr_phase_err || rx_error) next_err_state = ERR1;
+            IDLE_E: if (addr_phase_err || (rx_error && write_state != IDLE_W)) next_err_state = ERR1;
             ERR1: next_err_state = ERR2;
             ERR2: next_err_state = IDLE_E;
             default: next_err_state = IDLE_E;
@@ -353,15 +353,15 @@ module usb_ahb_subordinate (
     end
     always_comb begin
         hready_out_int = 1'b1; 
-        next_hresp = 1'b0;
+        HRESP = 1'b0;
         
         // error must last 2 cycles
         if (err_state == ERR1) begin // cycle 1
             hready_out_int = 1'b0;
-            next_hrest = 1'b1;
+            HRESP = 1'b1;
         end else if (err_state == ERR2) begin // cycle 2
             hready_out_int = 1'b1;
-            next_hresp = 1'b1;
+            HRESP = 1'b1;
         end else if (reg_hsel && reg_htrans[1]) begin // htrans is busy
             if (write_state == BUSY_W) begin
                 hready_out_int = 1'b0; // hold up the bus when busy
