@@ -87,6 +87,12 @@ module usb_ahb_subordinate (
     logic host_err;
 
 
+    logic tx_data0_send;
+    logic tx_data1_send;   
+    logic tx_send_ack;
+    logic tx_send_nak;
+    logic tx_send_stall;
+
     assign tx_data0_send = (HREADY == 1 && HRESP == 0) && ~data_type && next_status[1];
     assign tx_data1_send = (HREADY == 1 && HRESP == 0) && data_type && next_status[1] ;    
     assign tx_send_ack = (HREADY == 1 && HRESP == 0) ;
@@ -141,8 +147,8 @@ module usb_ahb_subordinate (
         rx_error // bit 0
     };
 
-    always_ff @(posedge HCLK or ~n_rst) begin
-        if(~n_rst) begin
+    always_ff @(posedge HCLK or negedge n_rst) begin
+        if(!n_rst) begin
             sending_data <= 0;
         end else begin
             sending_data <= next_sending_data;
@@ -152,6 +158,7 @@ module usb_ahb_subordinate (
     // transmission error logic
     always_comb begin
         next_sending_data = sending_data;
+        host_err = 0;
         if(tx_transfer_active) begin
             next_sending_data = 1;
             host_err = 0;
@@ -222,6 +229,7 @@ module usb_ahb_subordinate (
             reg_flush_ctrl <= 8'h00;
             reg_status <= 8'h00;
             data_type <= 1'b0;
+
         end else begin
             if (HREADY) begin
                 reg_haddr <= HADDR;
