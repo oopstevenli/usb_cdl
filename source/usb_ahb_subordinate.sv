@@ -81,11 +81,33 @@ module usb_ahb_subordinate (
     localparam [2:0] TX_NAK_CODE = 3'd4;
     localparam [2:0] TX_STALL_CODE = 3'd5;
 
+    logic data_type = 1'b0;
+    logic next_data_type = 1'b0;
+    logic [7:0] next_tx_ctrl;
+    logic host_err;
+
+
     assign tx_data0_send = (HREADY == 1 && HRESP == 0) && ~data_type && next_status[1];
     assign tx_data1_send = (HREADY == 1 && HRESP == 0) && data_type && next_status[1] ;    
-    assign tx_send_ack = (HREADY == 1 && HRESP == 0);
+    assign tx_send_ack = (HREADY == 1 && HRESP == 0) ;
     assign tx_send_nak = (HREADY == 0);
     assign tx_send_stall = (HRESP == 1);
+
+    //     next_tx_ctrl = reg_tx_ctrl;
+    //     if(tx_transfer_active == 0) begin
+    //         next_tx_ctrl = 0;
+    //     end else if(tx_data0_send) begin
+    //         next_tx_ctrl = {4'b0, TX_DATA0_CODE}; // write to 0xC
+    //     end else if(tx_data1_send) begin
+    //         next_tx_ctrl = {4'b0, TX_DATA1_CODE};
+    //     end else if(tx_send_ack && tx_transfer_active) begin
+    //         next_tx_ctrl = {4'b0, TX_ACK_CODE};
+    //     end else if(tx_send_nak) begin
+    //         next_tx_ctrl = {4'b0, TX_NAK_CODE};
+    //     end else if(tx_send_stall) begin
+    //         next_tx_ctrl = {4'b0, TX_STALL_CODE};
+    //     end
+    // end
 
 
     // logic signals for packet type (more readable)
@@ -95,8 +117,8 @@ module usb_ahb_subordinate (
     assign rx_data1_received = (rx_packet == RX_DATA1_CODE);
     assign rx_ack_received = (rx_packet == RX_ACK_CODE);
 
-    logic data_type = 1'b0;
-    logic next_data_type = 1'b0;
+    logic sending_data;
+    logic next_sending_data;
 
     // signal definitions moved from top level to here
     assign next_status = {
@@ -114,11 +136,35 @@ module usb_ahb_subordinate (
 
     assign reg_error = {
         7'b0000000, // bits 15:9
-        tx_error, // bit 8
+        tx_error || host_err, // bit 8
         7'b0000000, // bits 7:1
         rx_error // bit 0
     };
 
+    always_ff @(posedge HCLK or ~n_rst) begin
+        if(~n_rst) begin
+            sending_data <= 0;
+        end else begin
+            sending_data <= next_sending_data;
+        end
+    end
+
+    // transmission error logic
+    always_comb begin
+        next_sending_data = sending_data;
+        if(tx_transfer_active) begin
+            next_sending_data = 1;
+            host_err = 0;
+        end else if(rx_ack_received) begin
+            next_sending_data = 0;
+            host_err = 0;
+        end else if(rx_data0_received || rx_data1_received || rx_in_token || rx_out_token) begin
+            next_sending_data = 0;
+            host_err = 1;            
+        end
+
+    end
+    
     // output commands
     assign tx_packet = reg_tx_ctrl[2:0];
     assign clear = reg_flush_ctrl[0];
@@ -146,7 +192,6 @@ module usb_ahb_subordinate (
     logic [31:0] bypassed_reg_data;
     logic [31:0] next_hrdata;
     logic hready_out_int;
-    logic [7:0] next_tx_ctrl;
     logic [7:0] next_flush_ctrl;
     
 
@@ -213,29 +258,21 @@ module usb_ahb_subordinate (
 
     // next_tx_ctrl and next_flush_ctrl logic
     always_comb begin
-        next_tx_ctrl = reg_tx_ctrl;
         next_flush_ctrl = reg_flush_ctrl;
-        if(reg_wen && (reg_haddr[3:2] == REG_CONTROL)) begin
-            
-            // assign tx_data0_send = reg_status[4];
-            // assign tx_data1_send = reg_status[5];    
-            // assign tx_send_ack = (HREADY == 1 && HRESP == 0);
-            // assign tx_send_nak = (HREADY == 0);
-            // assign tx_send_stall = (HRESP == 1);
-            if(reg_haddr[1:0] == OFF_TX_PKT) begin
-                if(tx_data0_send) next_tx_ctrl = {4'b0, TX_DATA0_CODE}; // write to 0xC
-                if(tx_data1_send) next_tx_ctrl = {4'b0, TX_DATA1_CODE};
-                if(tx_send_ack) next_tx_ctrl = {4'b0, TX_ACK_CODE};
-                if(tx_send_nak) next_tx_ctrl = {4'b0, TX_NAK_CODE};
-                if(tx_send_stall) next_tx_ctrl = {4'b0, TX_STALL_CODE};
-            end
-            
-            if(reg_haddr[1:0] == OFF_FLUSH) begin
+        if((reg_haddr[3:2] == REG_CONTROL)) begin           
+            if(reg_wen && (reg_haddr[1:0] == OFF_FLUSH)) begin
                 next_flush_ctrl = HWDATA[15:8]; // write to 0xD
             end else begin
                 next_flush_ctrl = 8'b0;
             end
+        end
+    end
 
+    // next_tx_ctrl logic
+    always_comb begin
+        next_tx_ctrl = reg_tx_ctrl;
+        if(reg_wen && reg_haddr == 4'hC) begin
+            next_tx_ctrl = HWDATA[7:0];
         end
     end
 
@@ -293,7 +330,7 @@ module usb_ahb_subordinate (
         end else if (err_state == ERR2) begin // cycle 2
             hready_out_int = 1'b1;
             HRESP = 1'b1;
-        end else if (reg_hsel && reg_htrans[1]) begin
+        end else if (reg_hsel && reg_htrans[1]) begin // htrans is busy
             if (write_state == BUSY_W) begin
                 hready_out_int = 1'b0; // hold up the bus when busy
             end else if (reg_haddr[3:2] == REG_DATA_BUFF) begin
@@ -383,7 +420,7 @@ module usb_ahb_subordinate (
                     store_tx_data = 1'b1;
                     tx_data = HWDATA[(8 * reg_haddr[1:0]) +: 8];
                 end
-            end else if (HREADY) begin
+            end else if (HREADY && HWDATA == '0 && HSEL) begin
                 // read from data buffer
                 get_rx_data = 1'b1; // pop from FIFO
             end
