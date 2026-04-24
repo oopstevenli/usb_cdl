@@ -87,11 +87,11 @@ module usb_ahb_subordinate (
     logic host_err;
 
 
-    logic tx_data0_send = 0;
-    logic tx_data1_send = 0;   
-    logic tx_send_ack = 0;
-    logic tx_send_nak = 0;
-    logic tx_send_stall = 0;
+    logic tx_data0_send;
+    logic tx_data1_send;   
+    logic tx_send_ack;
+    logic tx_send_nak;
+    logic tx_send_stall;
 
     assign tx_data0_send = (HREADY == 1 && HRESP == 0) && ~data_type && next_status[1];
     assign tx_data1_send = (HREADY == 1 && HRESP == 0) && data_type && next_status[1] ;    
@@ -117,11 +117,11 @@ module usb_ahb_subordinate (
 
 
     // logic signals for packet type (more readable)
-    logic rx_out_token = 0;
-    logic rx_in_token = 0;
-    logic rx_data0_received = 0;
-    logic rx_data1_received = 0;
-    logic rx_ack_received = 0;
+    logic rx_out_token;
+    logic rx_in_token;
+    logic rx_data0_received;
+    logic rx_data1_received;
+    logic rx_ack_received;
 
     assign rx_out_token = (rx_packet == RX_OUT_CODE);
     assign rx_in_token = (rx_packet == RX_IN_CODE);
