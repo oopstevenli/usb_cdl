@@ -327,6 +327,69 @@ module tb_usb_ahb_transceiver ();
         end
     endtask
 
+    task send_data1_crc_err(input logic [3:0] num_bytes, input logic [31:0] data_in);
+        integer i;
+        begin
+            #(USB_BIT_PERIOD * 9);
+            @(negedge clk);
+            @(negedge clk);
+            //test_name = "SYNC BYTE";
+            send_byte(8'b0010_1010, 4'd8);
+            //#CLK_PERIOD;
+            #(CLK_PERIOD * 5);
+            @(negedge clk);
+            // PID BYTE      
+            send_byte(8'b0110_1100, 4'd8);
+            #CLK_PERIOD;
+            @(negedge clk);
+            //n byte data---------------------------------
+            if(num_bytes == 1) begin
+                send_byte(data_in[7:0], 4'd8);
+            end
+            //ahb_read(4'h4, 32'h80);
+            if(num_bytes == 2) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[15:8], 4'd8);
+            end
+            if(num_bytes == 3) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[15:8], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[23:16], 4'd8);
+            end
+            if(num_bytes == 4) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[15:8], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[23:16], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[31:24], 4'd8);
+            end
+            @(negedge clk);
+            //CRC16 bits---------------------------------
+            // "CRC16";
+            send_byte(8'b1110_1110, 4'd8);
+            @(negedge clk);
+            // "CRC16-2";
+            send_byte(8'b0010_1010, 4'd8);
+            @(negedge clk);
+            // "EOP";
+            dp_in = 0;
+            dm_in = 0;
+            #(USB_BIT_PERIOD);
+            @(negedge clk);
+            #(USB_BIT_PERIOD);
+            @(negedge clk);
+            dp_in = 1;
+            dm_in = 0;
+            #(USB_BIT_PERIOD);
+
+        end
+    endtask
+
     task send_out_token;
         begin
             #(USB_BIT_PERIOD * 9);
@@ -566,15 +629,43 @@ module tb_usb_ahb_transceiver ();
         ahb_read(4'h8, 32'h0, 3'b0);
         ahb_write(4'hc, 32'h1, 3'b0);
         @(negedge dp_out);
-        @(posedge clk);
+        @(negedge clk);
+
         decode_nrzi(8'b1000_0000, 1'b0, decode_success);
         // decode_nrzi(8'b11000011, 1'b0,  decode_success); 
         wait(d_mode == 0);
-        ahb_write(4'hc, 32'h0, 3'b0);
         ahb_read(4'h6, 32'h100, 3'b1);
+        ahb_write(4'hc, 32'h0, 3'b0);
         decode_nrzi(8'h0, 1'b1, decode_success);
 
     
+        $display("Test case %s completed verification.", testname);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+
+        testname = "end to host not ack error";
+        send_in_token();
+        ahb_read(4'h4, 32'h2, 3'b1);
+        ahb_write(4'hd, 32'h1, 3'b0);
+        ahb_read(4'h8, 32'h0, 3'b0);
+        ahb_write(4'h0, 32'h67, 3'b0);
+        ahb_write(4'hc, 32'h1, 3'b0);
+        @(negedge dp_out);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        decode_nrzi(8'b1000_0000, 1'b0, decode_success);
+        decode_nrzi(8'b11000011, 1'b0,  decode_success); //0101_0011
+        decode_nrzi(8'h67, 1'b0,  decode_success);
+        decode_nrzi(8'h01, 1'b0,  decode_success);
+        decode_nrzi(8'h55, 1'b0,  decode_success);
+        decode_nrzi(8'h0, 1'b1, decode_success);
+        wait(d_mode == 0);
+        ahb_read(4'h4, 32'h2, 3'b1);
+        ahb_write(4'hc, 32'h0, 3'b0);
+        send_out_token();
+        ahb_read(4'h6, 32'h100, 3'h1);
         $display("Test case %s completed verification.", testname);
         @(posedge clk);
         @(posedge clk);
@@ -657,6 +748,7 @@ module tb_usb_ahb_transceiver ();
         
         $display("Test case %s completed verification.", testname);
 
+
         @(posedge clk);
         @(posedge clk);
 
@@ -713,72 +805,9 @@ module tb_usb_ahb_transceiver ();
         
         $display("Test case %s completed verification.", testname);
 
+
         $finish;
     end
-
-    task send_data1_crc_err(input logic [3:0] num_bytes, input logic [31:0] data_in);
-        integer i;
-        begin
-            #(USB_BIT_PERIOD * 9);
-            @(negedge clk);
-            @(negedge clk);
-            //test_name = "SYNC BYTE";
-            send_byte(8'b0010_1010, 4'd8);
-            //#CLK_PERIOD;
-            #(CLK_PERIOD * 5);
-            @(negedge clk);
-            // PID BYTE      
-            send_byte(8'b0110_1100, 4'd8);
-            #CLK_PERIOD;
-            @(negedge clk);
-            //n byte data---------------------------------
-            if(num_bytes == 1) begin
-                send_byte(data_in[7:0], 4'd8);
-            end
-            //ahb_read(4'h4, 32'h80);
-            if(num_bytes == 2) begin
-                send_byte(data_in[7:0], 4'd8);
-                @(negedge clk);
-                send_byte(data_in[15:8], 4'd8);
-            end
-            if(num_bytes == 3) begin
-                send_byte(data_in[7:0], 4'd8);
-                @(negedge clk);
-                send_byte(data_in[15:8], 4'd8);
-                @(negedge clk);
-                send_byte(data_in[23:16], 4'd8);
-            end
-            if(num_bytes == 4) begin
-                send_byte(data_in[7:0], 4'd8);
-                @(negedge clk);
-                send_byte(data_in[15:8], 4'd8);
-                @(negedge clk);
-                send_byte(data_in[23:16], 4'd8);
-                @(negedge clk);
-                send_byte(data_in[31:24], 4'd8);
-            end
-            @(negedge clk);
-            //CRC16 bits---------------------------------
-            // "CRC16";
-            send_byte(8'b1110_1110, 4'd8);
-            @(negedge clk);
-            // "CRC16-2";
-            send_byte(8'b0010_1010, 4'd8);
-            @(negedge clk);
-            // "EOP";
-            dp_in = 0;
-            dm_in = 0;
-            #(USB_BIT_PERIOD);
-            @(negedge clk);
-            #(USB_BIT_PERIOD);
-            @(negedge clk);
-            dp_in = 1;
-            dm_in = 0;
-            #(USB_BIT_PERIOD);
-
-        end
-    endtask
-    
 endmodule
 
 /* verilator coverage_on */
