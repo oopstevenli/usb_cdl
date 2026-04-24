@@ -715,6 +715,70 @@ module tb_usb_ahb_transceiver ();
 
         $finish;
     end
+
+    task send_data1_crc_err(input logic [3:0] num_bytes, input logic [31:0] data_in);
+        integer i;
+        begin
+            #(USB_BIT_PERIOD * 9);
+            @(negedge clk);
+            @(negedge clk);
+            //test_name = "SYNC BYTE";
+            send_byte(8'b0010_1010, 4'd8);
+            //#CLK_PERIOD;
+            #(CLK_PERIOD * 5);
+            @(negedge clk);
+            // PID BYTE      
+            send_byte(8'b0110_1100, 4'd8);
+            #CLK_PERIOD;
+            @(negedge clk);
+            //n byte data---------------------------------
+            if(num_bytes == 1) begin
+                send_byte(data_in[7:0], 4'd8);
+            end
+            //ahb_read(4'h4, 32'h80);
+            if(num_bytes == 2) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[15:8], 4'd8);
+            end
+            if(num_bytes == 3) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[15:8], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[23:16], 4'd8);
+            end
+            if(num_bytes == 4) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[15:8], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[23:16], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[31:24], 4'd8);
+            end
+            @(negedge clk);
+            //CRC16 bits---------------------------------
+            // "CRC16";
+            send_byte(8'b1110_1110, 4'd8);
+            @(negedge clk);
+            // "CRC16-2";
+            send_byte(8'b0010_1010, 4'd8);
+            @(negedge clk);
+            // "EOP";
+            dp_in = 0;
+            dm_in = 0;
+            #(USB_BIT_PERIOD);
+            @(negedge clk);
+            #(USB_BIT_PERIOD);
+            @(negedge clk);
+            dp_in = 1;
+            dm_in = 0;
+            #(USB_BIT_PERIOD);
+
+        end
+    endtask
+    
 endmodule
 
 /* verilator coverage_on */
