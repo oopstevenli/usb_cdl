@@ -16,23 +16,23 @@ module usb_rx #(
 );
     logic d_orig, edge_detected, eop_detected;
     logic count_enable_timer;
-    logic shift_strobe, eight_bit_done, seven_bit_done, four_bit_done, five_bit_done, three_bit_done;
+    logic shift_strobe, eight_bit_done, seven_bit_done, four_bit_done, five_bit_done;
     logic [7:0] out0, out1, out2, out3; //results from three registers
     logic valid1, valid2;
-    logic enable3, enable4, enable5, enable7, enable8; //for bit counters
+    logic enable4, enable5, enable7, enable8; //for bit counters
     logic data_eop, n_data_eop;
     logic clear_timer;
     logic [3:0] count6, n_count6;
-    logic d_out, valid_bit;
+    logic valid_bit;
     logic shift_enable;
-    logic [2:0] hold_rx_pack;
+    logic [2:0] hold_rx_pack, n_hold_rx_pack;
     
 
     nrzi_decoder nrzi (
         .clk(clk), .n_rst(n_rst),  .dp(dp_in), .dm(dm_in), .d_orig(d_orig), .shift_strobe(shift_strobe), .edge_detected(edge_detected), .eop_detected(eop_detected)
     );
     rx_timer time0 (
-        .clk(clk), .n_rst(n_rst), .clear_timer(clear_timer), .enable3(enable3), .enable8(valid_bit & enable8), .enable4(enable4), .enable5(enable5), .enable7(enable7), .count_enable_timer(count_enable_timer), .shift_strobe(shift_strobe), .eight_bit_done(eight_bit_done), .seven_bit_done(seven_bit_done), .four_bit_done(four_bit_done), .five_bit_done(five_bit_done), .three_bit_done(three_bit_done)
+        .clk(clk), .n_rst(n_rst), .clear_timer(clear_timer), .enable8(valid_bit & enable8), .enable4(enable4), .enable5(enable5), .enable7(enable7), .count_enable_timer(count_enable_timer), .shift_strobe(shift_strobe), .eight_bit_done(eight_bit_done), .seven_bit_done(seven_bit_done), .four_bit_done(four_bit_done), .five_bit_done(five_bit_done)
     );
     flex_sr #(
         .SIZE(8),
@@ -138,7 +138,6 @@ module usb_rx #(
 
     always_comb begin
         valid_bit = 1;
-        d_out = d_orig;
 
         if (count6 >= 4'd6 && d_orig == 1'b0) begin
             valid_bit = '0;
@@ -283,7 +282,7 @@ module usb_rx #(
         rx_error = '0;
         store_rx_packet_data = '0;
         rx_packet_data = '0;
-        enable3 = '0;
+        //enable3 = '0;
         enable5 = '0;
         enable4 = '0;
         enable7 = '0;
@@ -414,28 +413,37 @@ module usb_rx #(
         endcase
     end
 
+    always_ff @(posedge clk or negedge n_rst) begin : HOLD_RXXX 
+        if (!n_rst) begin
+            hold_rx_pack <= '0;
+        end else begin
+            hold_rx_pack <= n_hold_rx_pack;
+        end
+    end
+
     always_comb begin : RX_PACK
-        hold_rx_pack = hold_rx_pack;
+        n_hold_rx_pack = hold_rx_pack;
+        //hold_rx_pack = hold_rx_pack;
         if (state == PID && eight_bit_done) begin
             if (out0 == 8'b1110_0001) //OUT
-                hold_rx_pack = 3'b001;
+                n_hold_rx_pack = 3'b001;
             else if (out0 == 8'b0110_1001) //IN
-                hold_rx_pack = 3'b010;
+                n_hold_rx_pack = 3'b010;
             else if (out0 == 8'b1100_0011) //DATA0
-                hold_rx_pack = 3'b011;
+                n_hold_rx_pack = 3'b011;
             else if (out0 == 8'b0100_1011) //DATA1
-                hold_rx_pack = 3'b100;
+                n_hold_rx_pack = 3'b100;
             else if (out0 == 8'b1101_0010) //ACK
-                hold_rx_pack = 3'b101;
+                n_hold_rx_pack = 3'b101;
             else
-                hold_rx_pack = 3'b000;
+                n_hold_rx_pack = 3'b000;
         end else if (state == PID) begin
-            hold_rx_pack = '0;
+            n_hold_rx_pack = '0;
         end
     end
 
     always_comb begin : SEND_RX_PACK
-        rx_packet = rx_packet;
+        //rx_packet = rx_packet;
         if (state == STOP || state == IDLE) begin
             rx_packet = hold_rx_pack;
 
