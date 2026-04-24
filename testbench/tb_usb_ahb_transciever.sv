@@ -657,6 +657,62 @@ module tb_usb_ahb_transceiver ();
         
         $display("Test case %s completed verification.", testname);
 
+        @(posedge clk);
+        @(posedge clk);
+
+        testname = "host to end crc error";
+        send_out_token();
+        ahb_read(4'h4, 32'h4, 3'b1); //see if out token received
+        ahb_write(4'hd, 32'h1, 3'b0);
+        ahb_write(4'hd, 32'h0, 3'b0); //clear data buffer
+        ahb_read(4'h8, 32'h0, 3'b0);
+        send_data1_crc_err(4'd1, 8'b0011_0101);
+        //enqueue_error_test();
+        ahb_write(4'hc, 32'd4, 3'b0); //NACK
+        @(negedge dp_out);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        decode_nrzi(8'b1000_0000, 1'b0, decode_success); //sync byte
+        decode_nrzi(8'b0101_1010, 1'b0,  decode_success); //nack pid
+        decode_nrzi(8'h0, 1'b1, decode_success);
+        wait(d_mode == 0);
+        ahb_write(4'hc, 32'h0, 3'b0);
+
+        
+        $display("Test case %s completed verification.", testname);
+
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        testname = "stall: host to end crc error";
+        send_out_token();
+        ahb_read(4'h4, 32'h4, 3'b1); //see if out token received
+        ahb_write(4'hd, 32'h1, 3'b0);
+        ahb_write(4'hd, 32'h0, 3'b0); //clear data buffer
+        ahb_read(4'h8, 32'h0, 3'b0);
+        send_data1_crc_err(4'd1, 8'b0011_0101);
+        //enqueue_error_test();
+        ahb_write(4'hc, 32'd5, 3'b0); //STALL
+        @(negedge dp_out);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        decode_nrzi(8'b1000_0000, 1'b0, decode_success); //sync byte
+        decode_nrzi(8'b0001_1110, 1'b0,  decode_success); //STALL pid
+        decode_nrzi(8'h0, 1'b1, decode_success);
+        wait(d_mode == 0);
+        ahb_write(4'hc, 32'h0, 3'b0);
+
+        
+        $display("Test case %s completed verification.", testname);
+
         $finish;
     end
 endmodule
