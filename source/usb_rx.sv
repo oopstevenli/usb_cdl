@@ -143,7 +143,7 @@ module usb_rx #(
 
         if (count6 == 4'd6 && d_orig == 1'b0) begin
             valid_bit = '0;
-        end else if (count6 == 4'd6 && d_orig == 1'b1) begin
+        end else if (count6 > 4'd6 && d_orig) begin
             stuff_error = 1;
         end
     end
