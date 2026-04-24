@@ -94,16 +94,18 @@ module tb_usb_rx ();
         test_name = "RESET";
 
         reset_dut;
-        //#(DATA_PERIOD * 9);
+        #(DATA_PERIOD * 9);
         @(negedge clk);
         @(negedge clk);
         test_name = "TOKEN OUT";
         //test_name = "SYNC BYTE";
         send_byte(8'b0010_1010, 4'd8);
         //#CLK_PERIOD;
+        #(CLK_PERIOD * 5);
         @(negedge clk);
         //test_name = "PID BYTE";
         send_byte(8'b0000_1010, 4'd8);
+        //#(CLK_PERIOD * 5);
         @(negedge clk);
         //test_name = "ADDR BYTE";
         send_byte(7'b010_1010, 4'd7);
@@ -134,11 +136,12 @@ module tb_usb_rx ();
         test_name = "DATA0";
         //test_name = "SYNC BYTE";
         send_byte(8'b0010_1010, 4'd8);
+        #(CLK_PERIOD * 5);
         @(negedge clk);
         //test_name = "PID BYTE";
         
         send_byte(8'b0001_0100, 4'd8);
-        #CLK_PERIOD;
+        //#(CLK_PERIOD * 5);
         @(negedge clk);
         //4 byte data---------------------------------
         send_byte(8'b1010_1010, 4'd8);
@@ -149,14 +152,17 @@ module tb_usb_rx ();
         send_byte(8'b1010_1010, 4'd8);
         @(negedge clk);
         send_byte(8'b0101_0101, 4'd8);
+        //#(CLK_PERIOD * 5);
         @(negedge clk);
         //CRC16 bits---------------------------------
-        //test_name = "CRC16";
+
+        test_name = "CRC16";
         send_byte(8'b1010_1110, 4'd8);
         @(negedge clk);
-        //test_name = "CRC16-2";
+        test_name = "CRC16-2";
         send_byte(8'b0010_1010, 4'd8);
         @(negedge clk);
+        
         //test_name = "EOP";
         dp_in = 0;
         dm_in = 0;
@@ -179,10 +185,12 @@ module tb_usb_rx ();
         test_name = "FILLED BUFFER";
         //test_name = "SYNC BYTE";
         send_byte(8'b0010_1010, 4'd8);
+        #(CLK_PERIOD * 5);
         @(negedge clk);
         //test_name = "PID BYTE";
         
         send_byte(8'b0001_0100, 4'd8);
+        //#(CLK_PERIOD * 5);
         @(negedge clk);
         //test_name = "EOP";
         dp_in = 0;
@@ -206,17 +214,20 @@ module tb_usb_rx ();
         @(negedge clk);
         //test_name = "SYNC BYTE";
         send_byte(8'b0010_1010, 4'd8);
+        #(CLK_PERIOD * 5);
         @(negedge clk);
         //test_name = "PID BYTE";
         
         send_byte(8'b0001_0100, 4'd8);
+        //#(CLK_PERIOD * 3);
         @(negedge clk);
         //4 byte data---------------------------------
         //CRC16 bits---------------------------------
-        //test_name = "CRC16";
+        test_name = "CRC16";
         send_byte(8'b1010_1110, 4'd8);
         @(negedge clk);
-        //test_name = "CRC16-2";
+        @(negedge clk);
+        test_name = "CRC16-2";
         send_byte(8'b0010_1010, 4'd8);
         @(negedge clk);
         //test_name = "EOP";
@@ -236,6 +247,7 @@ module tb_usb_rx ();
         test_name = "BIT UNSTUFF";
         //test_name = "SYNC BYTE";
         send_byte(8'b0010_1010, 4'd8);
+        #(CLK_PERIOD * 5);
         @(negedge clk);
         //test_name = "PID BYTE";
         
@@ -271,6 +283,7 @@ module tb_usb_rx ();
         test_name = "IN TOKEN";
         //test_name = "SYNC BYTE";
         send_byte(8'b0010_1010, 4'd8);
+        #(CLK_PERIOD * 5);
         //#CLK_PERIOD;
         @(negedge clk);
         //test_name = "PID BYTE";
@@ -308,6 +321,7 @@ module tb_usb_rx ();
         test_name = "ACK";
         //test_name = "SYNC BYTE";
         send_byte(8'b0010_1010, 4'd8);
+        #(CLK_PERIOD * 5);
         //#CLK_PERIOD;
         @(negedge clk);
         //test_name = "PID BYTE";
