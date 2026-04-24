@@ -527,7 +527,61 @@ module tb_usb_ahb_transceiver ();
         ahb_read(4'h4, 32'h8);
         $display("Test case %s completed verification.", testname);
 
+        testname = "end to host multiple bytes";
+        send_in_token();
+        ahb_read(4'h4, 32'h2);
+        ahb_write(4'hd, 32'h1);
+        ahb_read(4'h8, 32'h0);
+        ahb_write(4'h0, 32'h12345678);
+        ahb_write(4'h0, 32'hab);
+        ahb_write(4'hc, 32'h2);
+        @(negedge dp_out);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        decode_nrzi(8'b1000_0000, 1'b0, decode_success);
+        decode_nrzi(8'b01001011, 1'b0,  decode_success); 
+        decode_nrzi(8'h78, 1'b0,  decode_success);
+        decode_nrzi(8'h56, 1'b0,  decode_success);
+        decode_nrzi(8'h34, 1'b0,  decode_success);
+        decode_nrzi(8'h12, 1'b0,  decode_success);
+        decode_nrzi(8'hab, 1'b0,  decode_success);
+        decode_nrzi(8'h66, 1'b0,  decode_success);
+        decode_nrzi(8'hac, 1'b0,  decode_success);
+        decode_nrzi(8'h0, 1'b1, decode_success);
+        wait(d_mode == 0);
+        ahb_read(4'h4, 32'h2);
+        ahb_write(4'hc, 32'h0);
+        send_ack_token();
+        ahb_read(4'h4, 32'h8);
+        $display("Test case %s completed verification.", testname);
 
+        testname = "host to end";
+        send_out_token();
+        ahb_read(4'h4, 32'h4);
+        ahb_write(4'hd, 32'h1);
+        ahb_write(4'hd, 32'h0);
+        ahb_read(4'h8, 32'h0);
+        send_data0(4'd4, 32'b0101_0101_1010_1010_0101_0101_1010_1010);
+        ahb_read(4'h4, 32'h10);
+        ahb_write(4'hc, 32'h3); //ACK
+        @(negedge dp_out);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        decode_nrzi(8'b1000_0000, 1'b0, decode_success); //sync byte
+        decode_nrzi(8'b1101_0010, 1'b0,  decode_success); //ack pid
+        decode_nrzi(8'h0, 1'b1, decode_success);
+        wait(d_mode == 0);
+        ahb_write(4'hc, 32'h0);
+        ahb_read(4'h8, 32'h4);
+        ahb_read(4'h0, 32'h01); //wrong order please fix
+        ahb_read(4'h0, 32'h01);
+        ahb_read(4'h0, 32'h01);
+        ahb_read(4'h0, 32'h01);
+        ahb_write(4'hd, 32'h0);
+        
+        $display("Test case %s completed verification.", testname);
         // testname="end to host data error"
         // send_in_token();
         // ahb_read(4'h4, 32'h2);
