@@ -197,7 +197,7 @@ module usb_rx #(
                 end else if (((out0 == 8'b1100_0011) || (out0 == 8'b0100_1011)))begin //DATA
                     next_state = LOAD_DATA;
                 end else if (((out0 == 8'b1101_0010)))begin //ACK
-                    next_state = STOP;
+                    next_state = EOP;
                 end else begin
                     next_state = ERR;
                 end
@@ -327,6 +327,7 @@ module usb_rx #(
             CHECK_PID: begin
                 enable8 = 0;
                 count_enable_timer = 1;
+                rx_transfer_active = 1;
                 clear_timer = 0;
                 if (((out0 == 8'b1100_0011) || (out0 == 8'b0100_1011)))begin //DATA
                     flush = 1;
