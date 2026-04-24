@@ -146,6 +146,8 @@ module usb_ahb_subordinate (
         rx_data_ready // bit 0
     };
 
+    assign reg_buffer_occ = buffer_occupancy;
+
     assign reg_error = {
         7'b0000000, // bits 15:9
         tx_error || host_err, // bit 8
