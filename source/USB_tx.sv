@@ -8,7 +8,7 @@ module USB_tx (
     output logic get_tx_packet_data, tx_transfer_active, tx_error, DP_OUT, DM_OUT
 );
 
-enum logic [3:0] {IDLE, LOAD_SYNC, SEND_SYNC, LOAD_PID, SEND_PID, LOAD_DATA, SEND_DATA, LOAD_CRC, SEND_CRC, SEND_EOP, ERROR} state, next_state;
+enum logic [3:0] {IDLE, LOAD_SYNC, SEND_SYNC, LOAD_PID, SEND_PID, GET_DATA, LOAD_DATA, SEND_DATA, LOAD_CRC, SEND_CRC, SEND_EOP, ERROR} state, next_state;
 typedef enum logic [2:0] {DATA0=1, DATA1=2, ACK=3, NAK=4, STALL=5} packet_type;
 packet_type packet;
 assign packet = packet_type'(tx_packet);
@@ -42,6 +42,7 @@ flex_counter #(.SIZE(2)) cycles (.clk(clk), .n_rst(n_rst), .clear(1'b0), .count_
 .rollover_flag(rollover_flag_c), .count_out());
 flex_counter #(.SIZE(4)) timer (.clk(clk), .n_rst(n_rst), .clear(1'b0), .count_enable(1'b1), .rollover_val(rollover_val_t), 
 .rollover_flag(rollover_flag_t), .count_out());
+
 assign shift_enable=rollover_flag_t && (ones_ct<6);
 assign shift_enable_crc=rollover_flag_t && (ones_ct<6);
 flex_sr #(.SIZE(8), .MSB_FIRST(0)) pts_shift (.clk(clk), .n_rst(n_rst), .shift_enable(shift_enable), .load_enable(load_enable), 
@@ -176,7 +177,7 @@ always_comb begin
 
         LOAD_SYNC: begin
             tx_error=0;
-            tx_transfer_active=0;
+            tx_transfer_active=1;
             load_enable=1;
             parallel_in=8'b10000000;
             crc_enable=0;
@@ -190,7 +191,7 @@ always_comb begin
             tx_error=0;
             tx_transfer_active=1;
             load_enable=0;
-            parallel_in=8'b10000000;
+            parallel_in=8'b1000_0000;
             crc_enable=0;
             get_tx_packet_data=0;
             load_enable_crc=0;
@@ -205,7 +206,7 @@ always_comb begin
 
         LOAD_PID: begin
             tx_error=0;
-            tx_transfer_active=0;
+            tx_transfer_active=1;
             load_enable=1;
             parallel_in=pid_val;
             crc_enable=0;
@@ -229,7 +230,7 @@ always_comb begin
             end
             else begin
                 if(packet==DATA0 || packet==DATA1) begin
-                    next_state=LOAD_DATA;
+                    next_state=GET_DATA;
                 end
                 else begin
                     next_state=SEND_EOP;
@@ -237,10 +238,10 @@ always_comb begin
             end
         end
 
-        LOAD_DATA: begin
+        GET_DATA: begin
             tx_error=0;
-            tx_transfer_active=0;
-            load_enable=1;
+            tx_transfer_active=1;
+            load_enable=0;
             parallel_in=tx_packet_data;
             crc_enable=0;
             get_tx_packet_data=1;
@@ -250,8 +251,20 @@ always_comb begin
                 next_state=ERROR;
             end
             else begin
-                next_state=SEND_DATA;
+                next_state=LOAD_DATA;
             end
+        end
+
+        LOAD_DATA: begin
+            tx_error=0;
+            tx_transfer_active=1;
+            load_enable=1;
+            parallel_in=tx_packet_data;
+            crc_enable=0;
+            get_tx_packet_data=0;
+            load_enable_crc=0;
+            data_bit=serial_out;
+            next_state=SEND_DATA;
         end
 
         SEND_DATA: begin
@@ -271,14 +284,14 @@ always_comb begin
                     next_state=LOAD_CRC;
                 end
                 else begin
-                    next_state=LOAD_DATA;
+                    next_state=GET_DATA;
                 end
             end
         end
 
         LOAD_CRC: begin
             tx_error=0;
-            tx_transfer_active=0;
+            tx_transfer_active=1;
             load_enable=0;
             parallel_in='0;
             crc_enable=0;
@@ -308,7 +321,7 @@ always_comb begin
 
         SEND_EOP: begin
             tx_error=0;
-            tx_transfer_active=1;
+            tx_transfer_active=0;
             load_enable=0;
             parallel_in='0;
             crc_enable=0;
