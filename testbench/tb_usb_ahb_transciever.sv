@@ -219,13 +219,26 @@ module tb_usb_ahb_transceiver ();
             if(num_bytes == 1) begin
                 send_byte(data_in[7:0], 4'd8);
             end
+            //ahb_read(4'h4, 32'h80);
             if(num_bytes == 2) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
                 send_byte(data_in[15:8], 4'd8);
             end
             if(num_bytes == 3) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[15:8], 4'd8);
+                @(negedge clk);
                 send_byte(data_in[23:16], 4'd8);
             end
             if(num_bytes == 4) begin
+                send_byte(data_in[7:0], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[15:8], 4'd8);
+                @(negedge clk);
+                send_byte(data_in[23:16], 4'd8);
+                @(negedge clk);
                 send_byte(data_in[31:24], 4'd8);
             end
             //CRC16 bits---------------------------------
