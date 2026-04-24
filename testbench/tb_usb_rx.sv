@@ -19,6 +19,7 @@ module tb_usb_rx ();
     logic [7:0] rx_packet_data;
     logic flush;
     string test_name;
+    integer i;
 
     // clockgen
     always begin
@@ -156,10 +157,10 @@ module tb_usb_rx ();
         @(negedge clk);
         //CRC16 bits---------------------------------
 
-        test_name = "CRC16";
+        //test_name = "CRC16";
         send_byte(8'b1010_1110, 4'd8);
         @(negedge clk);
-        test_name = "CRC16-2";
+        //test_name = "CRC16-2";
         send_byte(8'b0010_1010, 4'd8);
         @(negedge clk);
         
@@ -223,11 +224,11 @@ module tb_usb_rx ();
         @(negedge clk);
         //4 byte data---------------------------------
         //CRC16 bits---------------------------------
-        test_name = "CRC16";
+        //test_name = "CRC16";
         send_byte(8'b1010_1110, 4'd8);
         @(negedge clk);
         @(negedge clk);
-        test_name = "CRC16-2";
+        //test_name = "CRC16-2";
         send_byte(8'b0010_1010, 4'd8);
         @(negedge clk);
         //test_name = "EOP";
@@ -255,16 +256,16 @@ module tb_usb_rx ();
         @(negedge clk);
         //test_name = "BIT STUFFED";
         //byte data---------------------------------
-        send_byte(8'b1100_0000, 4'd8);
+        send_byte(8'b1011_0000, 4'd8);
         @(negedge clk);
-        send_byte(81'b1, 4'd1);
+        send_byte(1'b0, 4'd1);
         @(negedge clk);
         //CRC16 bits---------------------------------
-        test_name = "CRC16";
-        send_byte(8'b0101_0001, 4'd8);
+        //test_name = "CRC16";
+        send_byte(8'b1010_1110, 4'd8);
         @(negedge clk);
-        test_name = "CRC16-2";
-        send_byte(8'b1101_0101, 4'd8);
+        //test_name = "CRC16-2";
+        send_byte(8'b0010_1010, 4'd8);
         @(negedge clk);
         //test_name = "EOP";
         dp_in = 0;
@@ -289,7 +290,7 @@ module tb_usb_rx ();
         //test_name = "PID BYTE";
         send_byte(8'b0111_0010, 4'd8);
         @(negedge clk);
-        test_name = "ADDR BYTE";
+        //test_name = "ADDR BYTE";
         send_byte(7'b010_1010, 4'd7);
         @(negedge clk);
         //test_name = "ENDP";
@@ -326,11 +327,145 @@ module tb_usb_rx ();
         @(negedge clk);
         //test_name = "PID BYTE";
         send_byte(8'b0001_1011, 4'd8);
+        @(negedge clk);
+        dp_in = 1;
+        dm_in = 0;
     
         @(negedge clk);
         @(negedge clk);
         @(negedge clk);
         @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        test_name = "Invalid sync";
+        //test_name = "SYNC BYTE";
+        send_byte(8'b0000_0000, 4'd8);
+        @(negedge clk);
+        dp_in = 1;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        test_name = "Invalid token";
+        //test_name = "SYNC BYTE";
+        send_byte(8'b0010_1010, 4'd8);
+        #(CLK_PERIOD * 5);
+        //#CLK_PERIOD;
+        @(negedge clk);
+        //test_name = "PID BYTE";
+        send_byte(8'b1000_0001, 4'd8);
+        dp_in = 1;
+        dm_in = 0;
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        #(CLK_PERIOD * 10);
+        @(negedge clk);
+        test_name = "BIT UNSTUFF ERR";
+        //test_name = "SYNC BYTE";
+        send_byte(8'b0010_1010, 4'd8);
+        #(CLK_PERIOD * 5);
+        @(negedge clk);
+        //test_name = "PID BYTE";
+        
+        send_byte(8'b0001_0100, 4'd8);
+        @(negedge clk);
+        //test_name = "BIT STUFFED";
+        //byte data---------------------------------
+        send_byte(8'b1100_0000, 4'd8);
+        @(negedge clk);
+        send_byte(81'b1, 4'd1);
+        @(negedge clk);
+        //========================
+        @(negedge clk);
+        test_name = "TOKEN OUT";
+        //test_name = "SYNC BYTE";
+        send_byte(8'b0010_1010, 4'd8);
+        //#CLK_PERIOD;
+        #(CLK_PERIOD * 5);
+        @(negedge clk);
+        //test_name = "PID BYTE";
+        send_byte(8'b0000_1010, 4'd8);
+        //#(CLK_PERIOD * 5);
+        @(negedge clk);
+        //test_name = "ADDR BYTE";
+        send_byte(7'b010_1010, 4'd7);
+        @(negedge clk);
+        //test_name = "ENDP";
+        send_byte(4'b1010, 4'd4);
+        @(negedge clk);
+        //test_name = "CRC5";
+        send_byte(5'b01110, 4'd5);
+        @(negedge clk);
+        //test_name = "EOP";
+        dp_in = 0;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        #(DATA_PERIOD);
+        @(negedge clk);
+        dp_in = 1;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        test_name = "DATA1";
+        //test_name = "SYNC BYTE";
+        send_byte(8'b0010_1010, 4'd8);
+        #(CLK_PERIOD * 5);
+        @(negedge clk);
+        //test_name = "PID BYTE";
+        
+        send_byte(8'b0110_1100, 4'd8);
+        //#(CLK_PERIOD * 5);
+        @(negedge clk);
+        //4 byte data---------------------------------
+        send_byte(8'b0011_0011, 4'd8);
+        @(negedge clk);
+        send_byte(8'b0001_0101, 4'd8);
+        
+
+        for (i = 0; i < 5; i++) begin
+        @(negedge clk);
+        send_byte(8'b0101_0100, 4'd8);
+        @(negedge clk);
+        send_byte(8'b0001_0101, 4'd8);
+        end
+        //#(CLK_PERIOD * 5);
+        @(negedge clk);
+        //CRC16 bits---------------------------------
+
+        test_name = "CRC16";
+        send_byte(8'b1010_1110, 4'd8);
+        @(negedge clk);
+        test_name = "CRC16-2";
+        send_byte(8'b0010_1010, 4'd8);
+        @(negedge clk);
+        
+        //test_name = "EOP";
+        dp_in = 0;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        #(DATA_PERIOD);
+        @(negedge clk);
+        dp_in = 1;
+        dm_in = 0;
+        #(DATA_PERIOD);
+        @(negedge clk);
+        @(negedge clk);
+        @(negedge clk);
+        
 
 
         $finish;
