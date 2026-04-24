@@ -27,15 +27,15 @@ module tb_usb_ahb_subordinate ();
     // Internal Mock Signals (UPDATED TO MATCH NEW PORTS)
     logic [6:0] mock_occ;
     logic [7:0] mock_rx_data;
-    logic [7:0] dut_tx_data;
-    logic dut_store_tx, dut_get_rx, dut_clear;
+    logic [7:0] mock_tx_data;
+    logic mock_store_tx, mock_get_rx, mock_clear;
     
     // RX Mock Signals
     logic [2:0] mock_rx_packet;
     logic mock_rx_ready, mock_rx_active, mock_rx_err;
     
     // TX Mock Signals
-    logic [7:0] dut_tx_packet;
+    logic [7:0] mock_tx_packet;
     logic mock_tx_active, mock_tx_err;
 
     // WAVEFORM TEST NAME
@@ -54,13 +54,13 @@ module tb_usb_ahb_subordinate ();
         .HWDATA(hwdata), .HRDATA(hrdata), .HREADY(hready), .HRESP(hresp),
         // Buffer
         .buffer_occupancy(mock_occ), .rx_data(mock_rx_data),
-        .tx_data(dut_tx_data), .store_tx_data(dut_store_tx), 
-        .get_rx_data(dut_get_rx), .clear(dut_clear),
+        .tx_data(dut_tx_data), .store_tx_data(mock_store_tx), 
+        .get_rx_data(mock_get_rx), .clear(mock_clear),
         // RX
         .rx_packet(mock_rx_packet), .rx_data_ready(mock_rx_ready),
         .rx_transfer_active(mock_rx_active), .rx_error(mock_rx_err),
         // TX
-        .tx_packet(dut_tx_packet), .tx_transfer_active(mock_tx_active),
+        .tx_packet(mock_tx_packet), .tx_transfer_active(mock_tx_active),
         .tx_error(mock_tx_err)
     );
 
