@@ -580,6 +580,53 @@ module tb_usb_ahb_transceiver ();
         @(posedge clk);
         @(posedge clk);
 
+
+        testname = "End to Host cannot send data";
+        send_in_token();
+        ahb_read(4'h4, 32'h2, 3'b1);
+        ahb_write(4'hd, 32'h1, 3'b0);
+        ahb_read(4'h8, 32'h0, 3'b0);
+        //no data to send so bus send nak packet
+        ahb_write(4'hc, 32'h4, 3'b0);
+        @(negedge dp_out);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        decode_nrzi(8'b1000_0000, 1'b0, decode_success);
+        decode_nrzi(8'b01011010, 1'b0,  decode_success); 
+        decode_nrzi(8'h0, 1'b1, decode_success);
+        wait(d_mode == 0);
+        ahb_read(4'h4, 32'h2, 3'b1);
+        ahb_write(4'hc, 32'h0, 3'b0);
+        $display("Test case %s completed verification.", testname);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+
+        testname = "End to Host halted";
+        send_in_token();
+        ahb_read(4'h4, 32'h2, 3'b1);
+        //rx error is read
+        //stall packet
+        ahb_write(4'hc, 32'h5, 3'b0);
+        @(negedge dp_out);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+        decode_nrzi(8'b1000_0000, 1'b0, decode_success);
+        decode_nrzi(8'b00011110, 1'b0,  decode_success); 
+        decode_nrzi(8'h0, 1'b1, decode_success);
+        wait(d_mode == 0);
+        ahb_read(4'h4, 32'h2, 3'b1);
+        ahb_write(4'hc, 32'h0, 3'b0);
+        $display("Test case %s completed verification.", testname);
+        @(posedge clk);
+        @(posedge clk);
+        @(posedge clk);
+
+
+
+
         testname = "host to end";
         send_out_token();
         ahb_read(4'h4, 32'h4, 3'b1);
