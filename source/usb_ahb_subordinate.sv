@@ -172,15 +172,15 @@ module usb_ahb_subordinate (
             next_sending_data = 1;
             host_err = 0;
         end
-        if(tx_error) begin
+        else if(tx_error) begin
             next_sending_data = 0;
         end
-        if(sending_data==1) begin
+        else if(sending_data==1) begin
           if(rx_ack_received) begin
             next_sending_data = 0;
             host_err = 0;
-            end else if((rx_data0_received || rx_data1_received || rx_in_token || rx_out_token) && ~tx_error) begin
-                next_sending_data = 0;
+            end else if((rx_data0_received || rx_data1_received || rx_out_token) && ~tx_error) begin
+                next_sending_data = 1;
                 host_err = 1;            
             end
         end
@@ -212,7 +212,7 @@ module usb_ahb_subordinate (
     write_state_t next_write_state;
     logic [3:0] write_mask;
     logic [31:0] bypassed_reg_data;
-    // logic [31:0] next_hrdata;
+    logic [31:0] prev_hrdata;
     logic hready_out_int;
     logic [7:0] next_flush_ctrl;
     
@@ -233,7 +233,7 @@ module usb_ahb_subordinate (
             err_state <= IDLE_E;
             write_state <= IDLE_W;
             byte_cnt <= 2'b00;
-            // HRDATA <= 32'h0;
+            prev_hrdata <= 32'h0;
             reg_tx_ctrl <= 8'h00;
             reg_flush_ctrl <= 8'h00;
             reg_status <= 8'h00;
@@ -252,7 +252,7 @@ module usb_ahb_subordinate (
             err_state <= next_err_state;
             write_state <= next_write_state;
             byte_cnt <= next_byte_cnt;
-            // HRDATA <= next_hrdata;
+            prev_hrdata <= HRDATA;
             data_type <= next_data_type;
 
             reg_flush_ctrl <= next_flush_ctrl;
@@ -384,20 +384,31 @@ module usb_ahb_subordinate (
     logic [31:0] read_mask;
     logic [31:0] read_reg_data;
 
+    always_ff @(posedge HCLK, negedge n_rst) begin
+        if(!n_rst) begin
+            active_addr = 0;
+            active_size = 0;
+            active_read = 0;
+        end
+        else begin
+            if (HREADY) begin // bus is moving, signals are new
+                active_addr = HADDR;
+                active_size = HSIZE;
+                active_read = (HSEL && !HWRITE && HTRANS[1]);
+            end else begin // bus is not moving, use registered signals
+                active_addr = reg_haddr;
+                active_size = reg_hsize;
+                active_read = (reg_hsel && !reg_hwrite);
+            end
+        end
+    end
+
     always_comb begin
         // default
         read_mask = 32'h0;
         write_mask = 4'b0000; 
 
-        if (HREADY) begin // bus is moving, signals are new
-            active_addr = HADDR;
-            active_size = HSIZE;
-            active_read = (HSEL && !HWRITE && HTRANS[1]);
-        end else begin // bus is not moving, use registered signals
-            active_addr = reg_haddr;
-            active_size = reg_hsize;
-            active_read = (reg_hsel && !reg_hwrite && reg_htrans[1]);
-        end
+        
 
         // decide how many bits to send based on current size request
         case (active_size[1:0])
@@ -429,13 +440,13 @@ module usb_ahb_subordinate (
             end
         end
 
-        // next_hrdata = 32'h0;
+        HRDATA = prev_hrdata;
         if (active_read) begin
             HRDATA = read_reg_data & read_mask; // update next output with the right size request
         end
     end
 
-    logic [7:0] tx1,tx2,tx3,tx1n,tx2n,tx3n,tx_data_next;
+    logic [7:0] tx1,tx2,tx3;
     logic [2:0] ct;
     logic [2:0] sizestay, sizestay_next;
     always_comb begin
@@ -466,7 +477,7 @@ module usb_ahb_subordinate (
             if(reg_hwrite && reg_hsel && (reg_haddr[3:2] == REG_DATA_BUFF)) begin
                 if(write_state == BUSY_W || HREADY) begin
                     if(ct==sizestay_next) begin
-                        store_tx_data=0;
+                        store_tx_data<=0;
                         ct<=0;
                     end
                     else begin
@@ -474,14 +485,14 @@ module usb_ahb_subordinate (
                         tx1<=HWDATA[15:8];
                         tx2<=HWDATA[23:16];
                         tx3<=HWDATA[31:24];
-                        store_tx_data=1;
+                        store_tx_data<=1;
                         ct<=ct+1;
                     end
                 end
             end
             else begin
                 if(ct>=sizestay) begin
-                    store_tx_data=0;
+                    store_tx_data<=0;
                     ct<=0;
                 end
                 else if(store_tx_data==1) begin
@@ -496,25 +507,8 @@ module usb_ahb_subordinate (
     end
     // Data Buffer Steering Logic
     always_comb begin
-        // store_tx_data = 1'b0;
         get_rx_data = 1'b0;
-        // tx_data='0;
-        // if (reg_hsel && (reg_haddr[3:2] == REG_DATA_BUFF)) begin
-            // if (reg_hwrite) begin
-                // write to data buffer
-                // if (write_state == BUSY_W) begin
-                    // if (buffer_occupancy < 7'd64) begin
-                        // store_tx_data = 1'b1;
-                        // tx_data = HWDATA[(8 * byte_cnt) +: 8];
-                        // tx_data = HWDATA[7:0];
-                    // end
-                // end else if (HREADY) begin
-                    // store_tx_data = 1'b1;
-                    // tx_data = HWDATA[(8 * reg_haddr[1:0]) +: 8];
-                    // tx_data = HWDATA[7:0];
-                
-                // end
-            // end else 
+
             if (HREADY && HWDATA == '0 && HSEL && (reg_haddr[3:2] == HADDR) && HTRANS!=0 && !HWRITE) begin
                 // read from data buffer
                 get_rx_data = 1'b1; // pop from FIFO
