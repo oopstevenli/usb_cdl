@@ -8,7 +8,7 @@ filesets:
             - "source/usb_ahb_transceiver.sv"
         file_type: systemVerilogSource
         depend:
-             - "u337mg206:ece337:usb_data_buffer:1.0.0"
+             - "u337mg206:ece337:data_buffer:1.0.0"
              - "u337mg206:ece337:usb_ahb_subordinate:1.0.0"
              - "u337mg206:ece337:usb_rx:1.0.0"
              - "u337mg206:ece337:USB_tx:1.0.0"
